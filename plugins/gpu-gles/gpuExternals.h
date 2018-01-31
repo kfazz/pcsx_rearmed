@@ -33,6 +33,7 @@
 extern "C" {
 #endif
 
+#if 0
 #ifdef __NANOGL__
 #include <gl/gl.h>
 #include <gl/egl.h>
@@ -40,6 +41,11 @@ extern "C" {
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 #endif
+#endif
+
+#include <GL/gl.h>
+#include <GL/glext.h>
+
 
 #ifndef GL_BGRA_EXT
 #define GL_BGRA_EXT GL_RGBA // ??

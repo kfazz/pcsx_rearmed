@@ -24,6 +24,7 @@
 //
 //*************************************************************************// 
 
+#define USE_X11
 
 #define _IN_DRAW
 
@@ -281,23 +282,6 @@ EGLint attrib_list[] =
 	EGL_NONE
 };
 
-bool TestEGLError(const char* pszLocation)
-{
-	/*
-		eglGetError returns the last error that has happened using egl,
-		not the status of the last called function. The user has to
-		check after every single egl call or at least once every frame.
-	*/
-	EGLint iErr = eglGetError();
-	if (iErr != EGL_SUCCESS)
-	{
-		printf("%s failed (0x%x).\n", pszLocation, iErr);
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 static int initEGL(void)
 {
 	NativeWindowType window = 0;
@@ -424,12 +408,8 @@ static int initEGL(void)
 	window = (NativeWindowType)1;
 #endif
 	surface = eglCreateWindowSurface( display, config, window, NULL );
-	if (!TestEGLError("eglCreateWindowSurface"))
-		return -1;
 
 	eglMakeCurrent( display, surface, surface, context );
-	if (!TestEGLError("eglMakeCurrent"))
-		return -1;
 
 	printf("GLES init ok\n");
 	return 0;

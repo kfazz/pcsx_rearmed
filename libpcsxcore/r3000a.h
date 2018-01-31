@@ -38,6 +38,8 @@ typedef struct {
 	void (*Shutdown)();
 } R3000Acpu;
 
+int stop,cycle_multiplier;
+
 extern R3000Acpu *psxCpu;
 extern R3000Acpu psxInt;
 extern R3000Acpu psxRec;
@@ -194,16 +196,7 @@ void new_dyna_before_save(void);
 void new_dyna_after_save(void);
 void new_dyna_freeze(void *f, int mode);
 
-#define new_dyna_set_event(e, c) { \
-	s32 c_ = c; \
-	u32 abs_ = psxRegs.cycle + c_; \
-	s32 odi_ = next_interupt - psxRegs.cycle; \
-	event_cycles[e] = abs_; \
-	if (c_ < odi_) { \
-		/*printf("%u: next_interupt %d -> %d (%u)\n", psxRegs.cycle, odi_, c_, abs_);*/ \
-		next_interupt = abs_; \
-	} \
-}
+#define new_dyna_set_event(e, c) {}
 
 #if defined(__BIGENDIAN__)
 

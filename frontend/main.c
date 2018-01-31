@@ -23,7 +23,6 @@
 #include "plat.h"
 #include "../libpcsxcore/misc.h"
 #include "../libpcsxcore/cheat.h"
-#include "../libpcsxcore/new_dynarec/new_dynarec.h"
 #include "../plugins/cdrcimg/cdrcimg.h"
 #include "../plugins/dfsound/spu_config.h"
 #include "arm_features.h"
@@ -148,7 +147,6 @@ void emu_set_default_config(void)
 	spu_config.iUseInterpolation = 0;
 	spu_config.iTempo = 1;
 #endif
-	new_dynarec_hacks = 0;
 	cycle_multiplier = 200;
 
 	in_type[0] = PSE_PAD_TYPE_STANDARD;

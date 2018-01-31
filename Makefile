@@ -39,7 +39,7 @@ CC_LINK ?= $(CC)
 CC_AS ?= $(CC)
 LDFLAGS += $(MAIN_LDFLAGS)
 EXTRA_LDFLAGS ?= -Wl,-Map=$@.map
-LDLIBS += $(MAIN_LDLIBS)
+LDLIBS += $(MAIN_LDLIBS) -lGL
 ifdef PCNT
 CFLAGS += -DPCNT
 endif
@@ -62,23 +62,9 @@ libpcsxcore/psxbios.o: CFLAGS += -Wno-nonnull
 
 # dynarec
 ifeq "$(USE_DYNAREC)" "1"
-OBJS += libpcsxcore/new_dynarec/new_dynarec.o libpcsxcore/new_dynarec/arm/linkage_arm.o
-OBJS += libpcsxcore/new_dynarec/backends/psx/pcsxmem.o
-else
-libpcsxcore/new_dynarec/backends/psx/emu_if.o: CFLAGS += -DDRC_DISABLE
+OBJS +=	libpcsxcore/ix86/iR3000A.o
+OBJS += libpcsxcore/ix86/ix86.o
 frontend/libretro.o: CFLAGS += -DDRC_DISABLE
-endif
-OBJS += libpcsxcore/new_dynarec/backends/psx/emu_if.o
-libpcsxcore/new_dynarec/new_dynarec.o: libpcsxcore/new_dynarec/arm/assem_arm.c \
-	libpcsxcore/new_dynarec/backends/psx/pcsxmem_inline.c
-ifdef DRC_DBG
-libpcsxcore/new_dynarec/backends/psx/emu_if.o: CFLAGS += -D_FILE_OFFSET_BITS=64
-CFLAGS += -DDRC_DBG
-endif
-ifeq "$(DRC_CACHE_BASE)" "1"
-libpcsxcore/new_dynarec/%.o: CFLAGS += -DBASE_ADDR_FIXED=1
-libpcsxcore/new_dynarec/backends/psx/%.o: CFLAGS += -DBASE_ADDR_FIXED=1
-libpcsxcore/new_dynarec/arm/%.o: CFLAGS += -DBASE_ADDR_FIXED=1
 endif
 
 # spu
@@ -117,21 +103,29 @@ plugins/dfsound/out.o: CFLAGS += -DHAVE_LIBRETRO
 endif
 
 # builtin gpu
-OBJS += plugins/gpulib/gpu.o plugins/gpulib/vout_pl.o
 ifeq "$(BUILTIN_GPU)" "neon"
+OBJS += plugins/gpulib/vout_pl.o
 OBJS += plugins/gpu_neon/psx_gpu_if.o plugins/gpu_neon/psx_gpu/psx_gpu_arm_neon.o
 plugins/gpu_neon/psx_gpu_if.o: CFLAGS += -DNEON_BUILD -DTEXTURE_CACHE_4BPP -DTEXTURE_CACHE_8BPP
 plugins/gpu_neon/psx_gpu_if.o: plugins/gpu_neon/psx_gpu/*.c
 endif
+ifeq "$(BUILTIN_GPU)" "gl"
+OBJS += plugins/gpu-gles/gpulib_if.o
+endif
 ifeq "$(BUILTIN_GPU)" "peops"
+OBJS += plugins/gpulib/vout_pl.o
 # note: code is not safe for strict-aliasing? (Castlevania problems)
+OBJS += plugins/gpulib/gpu.o 
 plugins/dfxvideo/gpulib_if.o: CFLAGS += -fno-strict-aliasing
 plugins/dfxvideo/gpulib_if.o: plugins/dfxvideo/prim.c plugins/dfxvideo/soft.c
 OBJS += plugins/dfxvideo/gpulib_if.o
 endif
 ifeq "$(BUILTIN_GPU)" "unai"
+OBJS += plugins/gpulib/vout_pl.o
+OBJS += plugins/gpulib/gpu.o
 OBJS += plugins/gpu_unai/gpulib_if.o
 ifeq "$(ARCH)" "arm"
+OBJS += plugins/gpulib/gpu.o
 OBJS += plugins/gpu_unai/gpu_arm.o
 endif
 plugins/gpu_unai/gpulib_if.o: CFLAGS += -DREARMED -O3 
