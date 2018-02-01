@@ -33,9 +33,7 @@
 extern "C" {
 #endif 
 
-#if !defined(_WINDOWS) && !defined(__NANOGL__)
-#define glOrtho(x,y,z,xx,yy,zz) glOrthof(x,y,z,xx,yy,zz)
-#endif
+//#define glOrtho(x,y,z,xx,yy,zz) glOrtho(x,y,z,xx,yy,zz)
 
 #define PRED(x)   ((x << 3) & 0xF8)
 #define PBLUE(x)  ((x >> 2) & 0xF8)

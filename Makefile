@@ -9,7 +9,7 @@ else
 ifeq ($(platform), vita)
 CFLAGS += -O3 -DNDEBUG
 else
-CFLAGS += -O2 -DNDEBUG
+CFLAGS += -O3 -DNDEBUG
 endif
 endif
 CXXFLAGS += $(CFLAGS)
@@ -51,7 +51,8 @@ OBJS += libpcsxcore/cdriso.o libpcsxcore/cdrom.o libpcsxcore/cheat.o libpcsxcore
 	libpcsxcore/psxcommon.o libpcsxcore/psxcounters.o libpcsxcore/psxdma.o libpcsxcore/psxhle.o \
 	libpcsxcore/psxhw.o libpcsxcore/psxinterpreter.o libpcsxcore/psxmem.o libpcsxcore/r3000a.o \
 	libpcsxcore/sio.o libpcsxcore/socket.o libpcsxcore/spu.o
-OBJS += libpcsxcore/gte.o libpcsxcore/gte_nf.o libpcsxcore/gte_divider.o
+OBJS += libpcsxcore/gte.o libpcsxcore/gte_divider.o
+# libpcsxcore/gte_nf.o
 ifeq "$(ARCH)" "arm"
 OBJS += libpcsxcore/gte_arm.o
 endif
@@ -112,10 +113,13 @@ endif
 ifeq "$(BUILTIN_GPU)" "gl"
 OBJS += plugins/gpu-gles/gpulib_if.o
 endif
+ifeq "$(BUILTIN_GPU)" "peopsxgl"
+OBJS += plugins/peopsxgl/gpulib_if.o
+endif
 ifeq "$(BUILTIN_GPU)" "peops"
 OBJS += plugins/gpulib/vout_pl.o
 # note: code is not safe for strict-aliasing? (Castlevania problems)
-OBJS += plugins/gpulib/gpu.o 
+OBJS += plugins/gpulib/gpu.o
 plugins/dfxvideo/gpulib_if.o: CFLAGS += -fno-strict-aliasing
 plugins/dfxvideo/gpulib_if.o: plugins/dfxvideo/prim.c plugins/dfxvideo/soft.c
 OBJS += plugins/dfxvideo/gpulib_if.o
@@ -128,7 +132,7 @@ ifeq "$(ARCH)" "arm"
 OBJS += plugins/gpulib/gpu.o
 OBJS += plugins/gpu_unai/gpu_arm.o
 endif
-plugins/gpu_unai/gpulib_if.o: CFLAGS += -DREARMED -O3 
+plugins/gpu_unai/gpulib_if.o: CFLAGS += -DREARMED -O3
 CC_LINK = $(CXX)
 endif
 
@@ -194,8 +198,11 @@ CFLAGS += `pkg-config --cflags glib-2.0 libosso dbus-1 hildon-fm-2`
 LDFLAGS += `pkg-config --libs glib-2.0 libosso dbus-1 hildon-fm-2`
 endif
 ifeq "$(PLATFORM)" "libretro"
+OBJS += glsym/glsym_gl.o
+OBJS += glsym/rglgen.o
+OBJS += glsm/glsm.o
 OBJS += frontend/libretro.o
-CFLAGS += -DFRONTEND_SUPPORTS_RGB565
+#CFLAGS += -DFRONTEND_SUPPORTS_RGB565
 CFLAGS += -DHAVE_LIBRETRO
 
 ifeq ($(MMAP_WIN32),1)

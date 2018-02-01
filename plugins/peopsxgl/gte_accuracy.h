@@ -1,7 +1,5 @@
 /***************************************************************************
- *   PCSX-Revolution - PlayStation Emulator for Nintendo Wii               *
- *   Copyright (C) 2009-2010  PCSX-Revolution Dev Team                     *
- *   <http://code.google.com/p/pcsx-revolution/>                           *
+ *   Copyright (C) 2011 by Blade_Arma                                      *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -16,50 +14,13 @@
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, write to the                         *
  *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02111-1307 USA.           *
+ *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef __GTE_H__
-#define __GTE_H__
+#ifndef _GTE_ACCURACY_H_
+#define _GTE_ACCURACY_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+extern void resetGteVertices();
+extern int getGteVertex(short sx, short sy, float *fx, float *fy);
 
-#include "psxcommon.h"
-#include "r3000a.h"
-
-void gteMFC2();
-void gteCFC2();
-void gteMTC2();
-void gteCTC2();
-void gteLWC2();
-void gteSWC2();
-
-void gteRTPS();
-void gteOP();
-void gteNCLIP();
-void gteDPCS();
-void gteINTPL();
-void gteMVMVA();
-void gteNCDS();
-void gteNCDT();
-void gteCDP();
-void gteNCCS();
-void gteCC();
-void gteNCS();
-void gteNCT();
-void gteSQR();
-void gteDCPL();
-void gteDPCT();
-void gteAVSZ3();
-void gteAVSZ4();
-void gteRTPT();
-void gteGPF();
-void gteGPL();
-void gteNCCT();
-
-#ifdef __cplusplus
-}
-#endif
-#endif
+#endif // _GTE_ACCURACY_H_

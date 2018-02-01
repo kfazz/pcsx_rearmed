@@ -1,7 +1,5 @@
 /***************************************************************************
- *   PCSX-Revolution - PlayStation Emulator for Nintendo Wii               *
- *   Copyright (C) 2009-2010  PCSX-Revolution Dev Team                     *
- *   <http://code.google.com/p/pcsx-revolution/>                           *
+ *   Copyright (C) 2011 by Blade_Arma                                      *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -16,50 +14,55 @@
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, write to the                         *
  *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02111-1307 USA.           *
+ *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef __GTE_H__
-#define __GTE_H__
+#include "stdafx.h"
+#include "externals.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <math.h>
 
-#include "psxcommon.h"
-#include "r3000a.h"
+// TODO: use malloc and pointer to the array's center.
+float gteCoords[0x800 * 2][0x800 * 2][2];
 
-void gteMFC2();
-void gteCFC2();
-void gteMTC2();
-void gteCTC2();
-void gteLWC2();
-void gteSWC2();
-
-void gteRTPS();
-void gteOP();
-void gteNCLIP();
-void gteDPCS();
-void gteINTPL();
-void gteMVMVA();
-void gteNCDS();
-void gteNCDT();
-void gteCDP();
-void gteNCCS();
-void gteCC();
-void gteNCS();
-void gteNCT();
-void gteSQR();
-void gteDCPL();
-void gteDPCT();
-void gteAVSZ3();
-void gteAVSZ4();
-void gteRTPT();
-void gteGPF();
-void gteGPL();
-void gteNCCT();
-
-#ifdef __cplusplus
+void CALLBACK GPUaddVertex(short sx, short sy, long long fx, long long fy, long long fz)
+{
+	if(bGteAccuracy)
+	{
+		if(sx >= -0x800 && sx <= 0x7ff &&
+		   sy >= -0x800 && sy <= 0x7ff)
+		{
+			gteCoords[sy + 0x800][sx + 0x800][0] = fx / 65536.0f;
+			gteCoords[sy + 0x800][sx + 0x800][1] = fy / 65536.0f;
+		}
+	}
 }
-#endif
-#endif
+
+void resetGteVertices()
+{
+	if(bGteAccuracy)
+	{
+		memset(gteCoords, 0x00, sizeof(gteCoords));
+	}
+}
+
+int getGteVertex(short sx, short sy, float *fx, float *fy)
+{
+	if(bGteAccuracy)
+	{
+		if(sx >= -0x800 && sx <= 0x7ff &&
+		   sy >= -0x800 && sy <= 0x7ff)
+		{
+			if((fabsf(gteCoords[sy + 0x800][sx + 0x800][0] - sx) < 1.0) &&
+			   (fabsf(gteCoords[sy + 0x800][sx + 0x800][1] - sy) < 1.0))
+			{
+				*fx = gteCoords[sy + 0x800][sx + 0x800][0];
+				*fy = gteCoords[sy + 0x800][sx + 0x800][1];
+				
+				return 1;
+			}
+		}
+	}
+	
+	return 0;
+}

@@ -2655,5 +2655,6 @@ void CALLBACK GPUrearmedCallbacks(const void **cbs)
 
 static void flipEGL(void)
 {
- eglSwapBuffers(display, surface);
+ //eglSwapBuffers(display, surface);
+return 0;
 }

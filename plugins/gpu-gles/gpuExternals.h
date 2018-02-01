@@ -43,20 +43,22 @@ extern "C" {
 #endif
 #endif
 
+#if 0
 #include <GL/gl.h>
 #include <GL/glext.h>
+#endif
+#include "../../glsym/glsym.h"
 
 
 #ifndef GL_BGRA_EXT
 #define GL_BGRA_EXT GL_RGBA // ??
 #endif
 
-#ifdef __NANOGL__
 #define glTexParameteri(x,y,z) glTexParameterf(x,y,z) 
 #define glAlphaFuncx(x,y) glAlphaFunc(x,y) 
 #ifndef APIENTRY
 #define APIENTRY
-#endif
+
 extern  void ( APIENTRY * glPixelStorei )(GLenum pname, GLint param);
 #endif
 

@@ -34,50 +34,20 @@ extern "C" {
 #ifndef _GPU_API_
 #define _GPU_API_ 1
 #endif
-	
-	
-	
-	// maybe we should remove this? 
-#ifdef _WINDOWS
-
-#define _CRT_SECURE_NO_WARNINGS
-
-#include <WINDOWS.H>
-#include <WINDOWSX.H>
-#include <Ts8.H>
-#include "resource.h"
-
-#pragma warning (disable:4244)
-
-#include <gl/gl.h>
-
-#else
-/*
-#define __X11_C_
-*/
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-#ifdef __NANOGL__
-#include <gl/gl.h>
-#else
-#ifdef SOFT_LINKAGE
-#pragma softfp_linkage
-#endif
-#include <GL/gl.h> // for opengl es types 
-//#include <GLES/egltypes.h>
-#include <EGL/egl.h>
-#ifdef SOFT_LINKAGE
-#pragma no_softfp_linkage
-#endif
-#endif
+
+//#include <GL/gl.h>
+
+#include "../../glsym/glsym.h"
+
 #include <math.h> 
 
 #define __inline inline
 
-#endif
 
 #define SHADETEXBIT(x) ((x>>24) & 0x1)
 #define SEMITRANSBIT(x) ((x>>25) & 0x1)

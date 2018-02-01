@@ -24,10 +24,7 @@
 //
 //*************************************************************************// 
 
-#define USE_X11
-
 #define _IN_DRAW
-
 
 #include "gpuExternals.h"
 #include "gpuPlugin.h"
@@ -248,24 +245,12 @@ void CreateScanLines(void)
 #define MODE_SDL 2
 int use_fsaa = 0;
 
-EGLDisplay display;
-EGLSurface surface;
-static EGLConfig  config;
-static EGLContext context;
+//EGLDisplay display;
+//EGLSurface surface;
+//static EGLConfig  config;
+//static EGLContext context;
 
-#if defined(USE_X11)
-#include "X11/Xlib.h"
-#include "X11/Xutil.h"
-#include "X11/Xatom.h"
-
-Window			x11Window	= 0;
-Display*		x11Display	= 0;
-long			x11Screen	= 0;
-XVisualInfo		x11Visual;
-XVisualInfo*	px11Visual	= 0;
-Colormap        x11Colormap	= 0;
-#endif
-
+/*
 EGLint attrib_list_fsaa[] =
 {
 	EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -281,157 +266,17 @@ EGLint attrib_list[] =
 //	EGL_DEPTH_SIZE,   16,
 	EGL_NONE
 };
-
-static int initEGL(void)
-{
-	NativeWindowType window = 0;
-
-	printf ("GL init\n");
-
-	EGLint numConfigs;
-	EGLint majorVersion;
-	EGLint minorVersion;
-#if defined(USE_X11)
-	enum
-	{
-	_NET_WM_STATE_REMOVE =0,
-	_NET_WM_STATE_ADD = 1,
-	_NET_WM_STATE_TOGGLE =2
-	};
-	
-	Window			        sRootWindow;
-	XSetWindowAttributes	sWA;
-	unsigned int		    ui32Mask;
-	int			            i32Depth;
-#endif
-	
-	EGLint *attribList = NULL;
-	if (use_fsaa)
-	{
-		printf( "GLES: Using Full Scene Antialiasing\n" );
-		attribList = attrib_list_fsaa;
-	}
-	else
-	{
-		attribList = attrib_list;
-	}
-
-#if defined(USE_X11)
-            // Initializes the display and screen
-            x11Display = XOpenDisplay( ":0" );
-            if (!x11Display)
-            {
-                printf("GLES Error: Unable to open X display\n");
-                return -1;
-            }
-            x11Screen = XDefaultScreen( x11Display );
-
-            // Gets the display parameters so we can pass the same parameters to the window to be created.
-            sRootWindow	= RootWindow(x11Display, x11Screen);
-            i32Depth	= DefaultDepth(x11Display, x11Screen);
-            px11Visual	= &x11Visual;
-            XMatchVisualInfo( x11Display, x11Screen, i32Depth, TrueColor, px11Visual);
-            if (!px11Visual)
-            {
-                printf("GLES Error: Unable to acquire visual\n");
-                return -1;
-            }
-            // Colormap of the specified visual type for the display.
-            x11Colormap = XCreateColormap( x11Display, sRootWindow, px11Visual->visual, AllocNone );
-            sWA.colormap = x11Colormap;
-
-            // List of events to be handled by the application. Add to these for handling other events.
-            sWA.event_mask = StructureNotifyMask | ExposureMask | ButtonPressMask | ButtonReleaseMask | KeyPressMask | KeyReleaseMask;
-
-            // Display capabilities list.
-            ui32Mask = CWBackPixel | CWBorderPixel | CWEventMask | CWColormap;
-
-            // Creates the X11 window
-            x11Window = XCreateWindow( x11Display, RootWindow(x11Display, x11Screen), 0, 0, iResX, iResY,
-                                        0, CopyFromParent, InputOutput, CopyFromParent, ui32Mask, &sWA);
-
-            // Make the window viewable and flush the output buffer.
-            XMapWindow(x11Display, x11Window);
-            XFlush(x11Display);
-
-            // Make the window fullscreen
-            unsigned char fullScreen = 1;
-            Atom wmState = XInternAtom(x11Display, "_NET_WM_STATE", False);
-            Atom wmFullScreen = XInternAtom(x11Display,"_NET_WM_STATE_FULLSCREEN", False);
-
-            XEvent xev;
-            xev.xclient.type		    = ClientMessage;
-            xev.xclient.serial		    = 0;
-            xev.xclient.send_event      = True;
-            xev.xclient.window		    = x11Window;
-            xev.xclient.message_type    = wmState;
-            xev.xclient.format		    = 32;
-            xev.xclient.data.l[0]		= (fullScreen ? _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE);
-            xev.xclient.data.l[1]		= wmFullScreen;
-            xev.xclient.data.l[2]		= 0;
-
-            XSendEvent(x11Display, DefaultRootWindow(x11Display), False, SubstructureRedirectMask | SubstructureNotifyMask, &xev);
-
-            display = eglGetDisplay( (EGLNativeDisplayType)x11Display );
-            window = x11Window;
-#else
-            display = eglGetDisplay( (EGLNativeDisplayType)0 );
-#endif
-
-	if( display == EGL_NO_DISPLAY )
-	{
-		printf( "GLES EGL Error: GL No Display\n" );
-		return -1;
-	}
-
-	if( !eglInitialize( display, &majorVersion, &minorVersion ) )
-	{
-		printf( "GLES EGL Error: eglInitialize failed\n" );
-		return -1;
-	}
-
-	if( !eglChooseConfig( display, attribList, &config, 1, &numConfigs ) )
-	{
-		printf( "GLES EGL Error: eglChooseConfig failed\n" );
-		return -1;
-	}
-
-	context = eglCreateContext( display, config, NULL, NULL );
-	if( context==0 )
-	{
-		printf( "GLES EGL Error: eglCreateContext failed\n" );
-		return -1;
-	}
-
-#ifdef FAKE_WINDOW
-	// broken Caanoo libs won't accept NULL window
-	window = (NativeWindowType)1;
-#endif
-	surface = eglCreateWindowSurface( display, config, window, NULL );
-
-	eglMakeCurrent( display, surface, surface, context );
-
-	printf("GLES init ok\n");
-	return 0;
-}
+*/
 
 static int created_gles_context;
 
 int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
 {
- if(ext_gles_display != NULL && ext_gles_surface != NULL) { 
-  display = (EGLDisplay)ext_gles_display;
-  surface = (EGLSurface)ext_gles_surface;
- }
- else {
-  if(initEGL()!=0)
-   return -1;
   created_gles_context=1;
- }
 
  //----------------------------------------------------// 
 
- glDepthRangef(0.0f, 1.0f);glError();
+ glDepthRange(0.0f, 1.0f);glError();
 
  glViewport(rRatioRect.left,                           // init viewport by ratio rect
             iResY-(rRatioRect.top+rRatioRect.bottom),
@@ -521,19 +366,13 @@ void GLcleanup()
 {                                                     
  CleanupTextureStore();                                // bye textures
 
- if(created_gles_context) {
-  eglMakeCurrent( display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT );
-  eglDestroySurface( display, surface );
-  eglDestroyContext( display, context );
-  eglTerminate( display );
-
-#if defined(USE_X11)
-		if (x11Window) XDestroyWindow(x11Display, x11Window);
-		if (x11Colormap) XFreeColormap( x11Display, x11Colormap );
-		if (x11Display) XCloseDisplay(x11Display);
-#endif
+// if(created_gles_context) {
+//  eglMakeCurrent( display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT );
+//  eglDestroySurface( display, surface );
+//  eglDestroyContext( display, context );
+//  eglTerminate( display );
   created_gles_context=0;
- }
+// }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -551,8 +390,7 @@ void GLcleanup()
 // please note: it is hardly do-able in a hw/accel plugin to get the 
 //              real psx polygon coord mapping right... the following
 //              works not to bad with many games, though
-
-__inline BOOL CheckCoord4()
+static __inline BOOL CheckCoord4()
 {
  if(lx0<0)
   {
@@ -618,7 +456,7 @@ __inline BOOL CheckCoord4()
  return FALSE;
 }
 
-__inline BOOL CheckCoord3()
+static __inline BOOL CheckCoord3()
 {
  if(lx0<0)
   {
@@ -655,7 +493,7 @@ __inline BOOL CheckCoord3()
 }
 
 
-__inline BOOL CheckCoord2()
+static __inline BOOL CheckCoord2()
 {
  if(lx0<0)
   {

@@ -16,9 +16,9 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "gpuDraw.c"
-#include "gpuTexture.c"
-#include "gpuPrim.c"
+#include "draw.c"
+#include "texture.c"
+#include "prim.c"
 #include "hud.c"
 
 static const short dispWidths[8] = {256,320,512,640,368,384,512,640};
@@ -26,10 +26,10 @@ short g_m1,g_m2,g_m3;
 short DrawSemiTrans;
 
 short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coords
-long           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-long           GlobalTextREST,GlobalTextABR,GlobalTextPAGE;
+//long           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
+//long           GlobalTextREST,GlobalTextABR,GlobalTextPAGE;
 
-unsigned long dwGPUVersion;
+//unsigned long dwGPUVersion;
 int           iGPUHeight=512;
 int           iGPUHeightMask=511;
 int           GlobalTextIL;
@@ -41,15 +41,15 @@ GLfloat         gl_z=0.0f;
 BOOL            bNeedInterlaceUpdate;
 BOOL            bNeedRGB24Update;
 BOOL            bChangeWinMode;
-long            lGPUstatusRet;
-unsigned long   ulGPUInfoVals[16];
+//long            lGPUstatusRet;
+//unsigned long   ulGPUInfoVals[16];
 VRAMLoad_t      VRAMWrite;
 VRAMLoad_t      VRAMRead;
 int             iDataWriteMode;
 int             iDataReadMode;
 
-long            lClearOnSwap;
-long            lClearOnSwapColor;
+//long            lClearOnSwap;
+//long            lClearOnSwapColor;
 BOOL            bSkipNextFrame;
 
 PSXDisplay_t    PSXDisplay;
@@ -688,7 +688,6 @@ long GPUopen(void **dpy)
 
  bDisplayNotSet = TRUE; 
  bSetClip = TRUE;
- CSTEXTURE = CSVERTEX = CSCOLOR = 0;
 
  InitializeTextureStore();                             // init texture mem
 

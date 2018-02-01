@@ -32,9 +32,12 @@
 #include "revision.h"
 #include "libretro.h"
 
-#ifdef _3DS
-#include "3ds/3ds_utils.h"
-#endif
+#include "../glsym/glsym.h"
+#include "../glsm/glsm.h"
+
+#define RARCH_GL_FRAMEBUFFER GL_FRAMEBUFFER
+#define RARCH_GL_FRAMEBUFFER_COMPLETE GL_FRAMEBUFFER_COMPLETE
+#define RARCH_GL_COLOR_ATTACHMENT0 GL_COLOR_ATTACHMENT0
 
 #define PORTS_NUMBER 8
 
@@ -46,6 +49,8 @@
 
 //hack to prevent retroarch freezing when reseting in the menu but not while running with the hot key
 static int rebootemu = 0;
+
+static struct retro_hw_render_callback hw_render;
 
 static retro_video_refresh_t video_cb;
 static retro_input_poll_t input_poll_cb;
@@ -89,8 +94,13 @@ int in_enable_vibration = 1;
 //Dummy functions
 bool retro_load_game_special(unsigned game_type, const struct retro_game_info *info, size_t num_info){return false;}
 void retro_unload_game(void){}
-static int vout_open(void){return 0;}
-static void vout_close(void){}
+static int vout_open(void){
+fprintf(stderr, "vout_open\n");
+return 0;
+}
+static void vout_close(void){
+fprintf(stderr, "vout_close\n");
+}
 static int snd_init(void){return 0;}
 static void snd_finish(void){}
 static int snd_busy(void){return 0;}
@@ -141,11 +151,13 @@ static void vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp)
 
   vout_buf_ptr = vout_buf;
 
-  if (environ_cb(RETRO_ENVIRONMENT_GET_CURRENT_SOFTWARE_FRAMEBUFFER, &fb) && fb.format == RETRO_PIXEL_FORMAT_RGB565)
+ /* if (environ_cb(RETRO_ENVIRONMENT_GET_CURRENT_SOFTWARE_FRAMEBUFFER, &fb) && fb.format == RETRO_PIXEL_FORMAT_RGB565)
   {
      vout_buf_ptr  = (uint16_t*)fb.data;
   }
+  */
 
+     vout_buf_ptr = hw_render.get_current_framebuffer();
 }
 
 #ifndef FRONTEND_SUPPORTS_RGB565
@@ -205,167 +217,6 @@ out:
 	vout_fb_dirty = 1;
 	pl_rearmed_cbs.flip_cnt++;
 }
-
-#ifdef _3DS
-typedef struct
-{
-   void* buffer;
-   uint32_t target_map;
-   size_t size;
-   enum psxMapTag tag;
-}psx_map_t;
-
-psx_map_t custom_psx_maps[] = {
-   {NULL, 0x13000000, 0x210000, MAP_TAG_RAM},   // 0x80000000
-   {NULL, 0x12800000, 0x010000, MAP_TAG_OTHER}, // 0x1f800000
-   {NULL, 0x12c00000, 0x080000, MAP_TAG_OTHER}, // 0x1fc00000
-   {NULL, 0x11000000, 0x800000, MAP_TAG_LUTS},  // 0x08000000
-   {NULL, 0x12000000, 0x200000, MAP_TAG_VRAM},  // 0x00000000
-};
-
-void* pl_3ds_mmap(unsigned long addr, size_t size, int is_fixed,
-	enum psxMapTag tag)
-{
-   (void)is_fixed;
-   (void)addr;
-
-   if (__ctr_svchax)
-   {
-      psx_map_t* custom_map = custom_psx_maps;
-
-      for (; custom_map->size; custom_map++)
-      {
-         if ((custom_map->size == size) && (custom_map->tag == tag))
-         {
-            uint32_t ptr_aligned, tmp;
-
-            custom_map->buffer = malloc(size + 0x1000);
-            ptr_aligned = (((u32)custom_map->buffer) + 0xFFF) & ~0xFFF;
-
-            if(svcControlMemory(&tmp, (void*)custom_map->target_map, (void*)ptr_aligned, size, MEMOP_MAP, 0x3) < 0)
-            {
-               SysPrintf("could not map memory @0x%08X\n", custom_map->target_map);
-               exit(1);
-            }
-
-            return (void*)custom_map->target_map;
-         }
-      }
-   }
-
-   return malloc(size);
-}
-
-void pl_3ds_munmap(void *ptr, size_t size, enum psxMapTag tag)
-{
-   (void)tag;
-
-   if (__ctr_svchax)
-   {
-      psx_map_t* custom_map = custom_psx_maps;
-
-      for (; custom_map->size; custom_map++)
-      {
-         if ((custom_map->target_map == (uint32_t)ptr))
-         {
-            uint32_t ptr_aligned, tmp;
-
-            ptr_aligned = (((u32)custom_map->buffer) + 0xFFF) & ~0xFFF;
-
-            svcControlMemory(&tmp, (void*)custom_map->target_map, (void*)ptr_aligned, size, MEMOP_UNMAP, 0x3);
-
-            free(custom_map->buffer);
-            custom_map->buffer = NULL;
-            return;
-         }
-      }
-   }
-
-   free(ptr);
-}
-#endif
-
-#ifdef VITA
-typedef struct
-{
-   void* buffer;
-   uint32_t target_map;
-   size_t size;
-   enum psxMapTag tag;
-}psx_map_t;
-
-void* addr = NULL;
-
-psx_map_t custom_psx_maps[] = {
-   {NULL, NULL, 0x210000, MAP_TAG_RAM},   // 0x80000000
-   {NULL, NULL, 0x010000, MAP_TAG_OTHER}, // 0x1f800000
-   {NULL, NULL, 0x080000, MAP_TAG_OTHER}, // 0x1fc00000
-   {NULL, NULL, 0x800000, MAP_TAG_LUTS},  // 0x08000000
-   {NULL, NULL, 0x200000, MAP_TAG_VRAM},  // 0x00000000
-};
-
-int init_vita_mmap(){
-  int n;
-  void * tmpaddr;
-  addr = malloc(64*1024*1024);
-  if(addr==NULL)
-    return -1;
-  tmpaddr = ((u32)(addr+0xFFFFFF))&~0xFFFFFF;
-  custom_psx_maps[0].buffer=tmpaddr+0x2000000;
-  custom_psx_maps[1].buffer=tmpaddr+0x1800000;
-  custom_psx_maps[2].buffer=tmpaddr+0x1c00000;
-  custom_psx_maps[3].buffer=tmpaddr+0x0000000;
-  custom_psx_maps[4].buffer=tmpaddr+0x1000000;
-#if 0
-  for(n = 0; n < 5; n++){
-    sceClibPrintf("addr reserved %x\n",custom_psx_maps[n].buffer);
-  }
-#endif
-  return 0;
-}
-
-void deinit_vita_mmap(){
-  free(addr);
-}
-
-void* pl_vita_mmap(unsigned long addr, size_t size, int is_fixed,
-	enum psxMapTag tag)
-{
-   (void)is_fixed;
-   (void)addr;
-
-
-    psx_map_t* custom_map = custom_psx_maps;
-
-    for (; custom_map->size; custom_map++)
-    {
-       if ((custom_map->size == size) && (custom_map->tag == tag))
-       {
-          return custom_map->buffer;
-       }
-    }
-
-
-   return malloc(size);
-}
-
-void pl_vita_munmap(void *ptr, size_t size, enum psxMapTag tag)
-{
-   (void)tag;
-
-   psx_map_t* custom_map = custom_psx_maps;
-
-  for (; custom_map->size; custom_map++)
-  {
-     if ((custom_map->buffer == ptr))
-     {
-        return;
-     }
-  }
-
-   free(ptr);
-}
-#endif
 
 static void *pl_mmap(unsigned int size)
 {
@@ -467,6 +318,41 @@ void retro_set_environment(retro_environment_t cb)
    environ_cb = cb;
 
    cb(RETRO_ENVIRONMENT_SET_VARIABLES, (void*)vars);
+}
+
+static bool fb_ready = false;
+static bool init_program_now = true;
+
+static void context_reset(void)
+{
+   printf("context_reset.\n");
+   glsm_ctl(GLSM_CTL_STATE_CONTEXT_RESET, NULL);
+   //rglgen_resolve_symbols(hw_render.get_proc_address);
+
+   if (!glsm_ctl(GLSM_CTL_STATE_SETUP, NULL))
+      return;
+
+   fb_ready = true;
+   init_program_now = true;
+
+      if (GPU_open != NULL && GPU_close != NULL) {
+	printf("gpu_open\n");
+         GPU_close();
+         GPU_open(&gpuDisp, "PCSX", NULL);
+      }
+
+}
+
+static void context_destroy(void)
+{
+   glsm_ctl(GLSM_CTL_STATE_CONTEXT_DESTROY, NULL);
+}
+
+static bool context_framebuffer_lock(void *data)
+{
+   if (fb_ready)
+      return false;
+   return true;
 }
 
 void retro_set_video_refresh(retro_video_refresh_t cb) { video_cb = cb; }
@@ -1013,6 +899,25 @@ bool retro_load_game(const struct retro_game_info *info)
 	size_t i;
 	bool is_m3u = (strcasestr(info->path, ".m3u") != NULL);
 
+  enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
+   if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
+   {
+      fprintf(stderr, "XRGB8888 is not supported.\n");
+      return false;
+   }
+
+   glsm_ctx_params_t params = {0};
+   params.context_reset         = context_reset;
+   params.context_destroy       = context_destroy;
+   params.environ_cb            = environ_cb;
+   params.stencil               = false;
+   params.imm_vbo_draw          = NULL;
+   params.imm_vbo_disable       = NULL;
+   params.framebuffer_lock      = context_framebuffer_lock;
+
+   if (!glsm_ctl(GLSM_CTL_STATE_CONTEXT_INIT, &params))
+      return false;
+
    struct retro_input_descriptor desc[] = {
       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT,  "D-Pad Left" },
       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP,    "D-Pad Up" },
@@ -1188,7 +1093,7 @@ bool retro_load_game(const struct retro_game_info *info)
 
    environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
 
-#ifdef FRONTEND_SUPPORTS_RGB565
+#if 0 //def FRONTEND_SUPPORTS_RGB565
 	enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_RGB565;
 	if (environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt)) {
 		SysPrintf("RGB565 supported, using it\n");
@@ -1503,7 +1408,7 @@ static void update_variables(bool in_flight)
    if (in_flight) {
       // inform core things about possible config changes
       plugin_call_rearmed_cbs();
-
+	SysPrintf("do GPU_open\n\n");
       if (GPU_open != NULL && GPU_close != NULL) {
          GPU_close();
          GPU_open(&gpuDisp, "PCSX", NULL);
@@ -1539,8 +1444,10 @@ void retro_run(void)
 	input_poll_cb();
 
 	bool updated = false;
-	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated)
+	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated) {
+		SysPrintf("update_variables inflight\n\n");
 		update_variables(true);
+	}
 
 	// reset all keystate, query libretro for keystate
 	int j;
@@ -1564,11 +1471,16 @@ void retro_run(void)
 		}
 	}
 
+	//glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
+        glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+
 	stop = 0;
 	psxCpu->Execute();
 
-	video_cb((vout_fb_dirty || !vout_can_dupe || !duping_enable) ? vout_buf_ptr : NULL,
-		vout_width, vout_height, vout_width * 2);
+	//video_cb((vout_fb_dirty || !vout_can_dupe || !duping_enable) ? vout_buf_ptr : NULL,
+	//	vout_width, vout_height, vout_width * 2);
+   glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
+	video_cb(RETRO_HW_FRAME_BUFFER_VALID, vout_width, vout_height, 0);
 	vout_fb_dirty = 0;
 }
 
@@ -1669,13 +1581,11 @@ void retro_init(void)
 		exit(1);
 	}
 
-#ifdef _3DS
-   vout_buf = linearMemAlign(VOUT_MAX_WIDTH * VOUT_MAX_HEIGHT * 2, 0x80);
-#elif defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200112L) && !defined(VITA)
+
 	posix_memalign(&vout_buf, 16, VOUT_MAX_WIDTH * VOUT_MAX_HEIGHT * 2);
-#else
-	vout_buf = malloc(VOUT_MAX_WIDTH * VOUT_MAX_HEIGHT * 2);
-#endif
+
+	//vout_buf = malloc(VOUT_MAX_WIDTH * VOUT_MAX_HEIGHT * 2);
+
   
   vout_buf_ptr = vout_buf;
   
