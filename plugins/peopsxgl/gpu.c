@@ -169,7 +169,6 @@ short           imageX0,imageX1;
 short           imageY0,imageY1;
 BOOL            bDisplayNotSet = TRUE;
 GLuint          uiScanLine=0;
-int             iUseScanLines=0;
 float           iScanlineColor[] = {0,0,0, 0.3f}; // easy on the eyes.
 int             lSelectedSlot=0;
 unsigned char * pGfxCardScreen=0;
@@ -361,11 +360,6 @@ char * GetConfigInfos(int hW)
  
  strcat(pB,szTxt);             
  //----------------------------------------------------//
- sprintf(szTxt,"Misc:\r\n- Scanlines: %s",szO[iUseScanLines]);
- strcat(pB,szTxt);
- if(iUseScanLines) sprintf(szTxt," [%d]\r\n",iScanBlend);
- else strcpy(szTxt,"\r\n");
- strcat(pB,szTxt);
  sprintf(szTxt,"- Line mode: %s\r\n",szO[bUseLines]);
  strcat(pB,szTxt);
 // sprintf(szTxt,"- Line AA: %s\r\n",szO[bUseAntiAlias]);
@@ -1536,26 +1530,18 @@ void updateDisplay(void)                               // UPDATE DISPLAY
  if(iBlurBuffer && !bSkipNextFrame)                    // "blur display" activated?
   {BlurBackBuffer();bBlur=TRUE;}                       // -> blur it
 
- if(iUseScanLines) SetScanLines();                     // "scan lines" activated? do it
-
  if(usCursorActive) ShowGunCursor();                   // "gun cursor" wanted? show 'em
 
  if(dwActFixes&128)                                    // special FPS limitation mode?
   {
    if(bUseFrameLimit) PCFrameCap();                    // -> ok, do it
-   if(bUseFrameSkip || ulKeybits&KEY_SHOWFPS)  
+   if(bUseFrameSkip)  
     PCcalcfps();         
   }
 
  if(gTexPicName) DisplayPic();                         // some gpu info picture active? display it
 
  if(bSnapShot) DoSnapShot();                           // snapshot key pressed? cheeeese :)
-
- if(ulKeybits&KEY_SHOWFPS)                             // wanna see FPS?
-  {
-   sprintf(szDispBuf,"%06.1f",fps_cur);
-   //DisplayText();                                      // -> show it
-  }
 
  //----------------------------------------------------//
  // main buffer swapping (well, or skip it)
@@ -1693,8 +1679,6 @@ void updateFrontDisplay(void)
   PaintBlackBorders();
 
  if(iBlurBuffer) BlurBackBuffer();
-
- if(iUseScanLines) SetScanLines();
 
  if(usCursorActive) ShowGunCursor();
 

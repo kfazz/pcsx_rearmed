@@ -2374,12 +2374,14 @@ void primTileS(unsigned char * baseAddr)
    offsetPSX4();
    if(bDrawOffscreen4())
     {
+#if 0
      if(!(iTileCheat && sprtH==32 && gpuData[0]==0x60ffffff)) // special cheat for certain ZiNc games
       {
        InvalidateTextureAreaEx();   
        FillSoftwareAreaTrans(lx0,ly0,lx2,ly2,
                              BGR24to16(gpuData[0]));  
       }
+#endif
     }
   }
 

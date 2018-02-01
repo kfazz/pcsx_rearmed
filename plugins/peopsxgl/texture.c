@@ -445,6 +445,7 @@ void CheckTextureMemory(void)
  int i,iCnt,iRam=iVRamSize*1024*1024;
  int iTSize;char * p;
 
+#if 0
  if(iBlurBuffer)
   {
    char * p;
@@ -476,6 +477,7 @@ void CheckTextureMemory(void)
    iFTexA=(iResX*256)/iFTexA;
    iFTexB=(iResY*256)/iFTexB;
   }
+#endif
  
  if(iVRamSize)
   {

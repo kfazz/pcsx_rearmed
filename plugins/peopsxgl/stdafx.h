@@ -76,6 +76,18 @@
 #define SHADETEXBIT(x) ((x>>24) & 0x1)
 #define SEMITRANSBIT(x) ((x>>25) & 0x1)
 
+#if 1
+#define glError() { \
+       GLenum err = glGetError(); \
+       while (err != GL_NO_ERROR) { \
+               printf("glError: %d caught at %s:%u\n", err, __FILE__, __LINE__); \
+               err = glGetError(); \
+       } \
+}
+#else
+#define glError() 
+#endif
+
 #ifndef _WINDOWS
 #ifndef GL_BGRA_EXT
 #define GL_BGRA_EXT GL_BGRA

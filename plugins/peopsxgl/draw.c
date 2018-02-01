@@ -507,59 +507,6 @@ GLubyte texscan[4][16]=
 {O_TSP, N_TSP, O_TSP, N_TSP}
 };
 
-void CreateScanLines(void)
-{
- if(iUseScanLines)
-  {
-   int y;
-   if(iScanBlend<0)                                    // special scan mask mode
-    {
-     glGenTextures(1, &gTexScanName);
-     glBindTexture(GL_TEXTURE_2D, gTexScanName);
-
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-     glTexImage2D(GL_TEXTURE_2D, 0, 4, 4, 4, 0,GL_RGBA, GL_UNSIGNED_BYTE, texscan);
-    }
-   else                                                // otherwise simple lines in a display list
-    {
-     uiScanLine=glGenLists(1);
-     glNewList(uiScanLine,GL_COMPILE);
-     #ifdef _MACGL
-      // not mac specific, just commenting out to be friendly
-      // use it if you like
-      // this draws anti-aliased lines with user-chosen color
-      glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT);
-      glEnable(GL_BLEND | GL_LINE_SMOOTH);
-      glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-      glColor4f(iScanlineColor[0],iScanlineColor[1],iScanlineColor[2],iScanlineColor[3]);
-      glBegin(GL_LINES);
-      for(y=0;y<iResY;y+=2)
-      {
-       glVertex2f(0,y);
-       glVertex2f(iResX,y);
-      }
-      glEnd();
-      glPopAttrib();
-	 #else
-	      for(y=0;y<iResY;y+=2)
-      {
-       glBegin(GL_QUADS);
-         glVertex2f(0,y);
-         glVertex2f(iResX,y);
-         glVertex2f(iResX,y+1);
-         glVertex2f(0,y+1);
-       glEnd();
-      }
-     
-    #endif
-    glEndList();
-    }
-  }
-}
-
 ////////////////////////////////////////////////////////////////////////
 // Initialize OGL
 ////////////////////////////////////////////////////////////////////////
@@ -693,18 +640,9 @@ int GLinitialize()
  glFlush();                                            // we are done...
  glFinish();                           
 
- CreateScanLines();                                    // setup scanline stuff (if wanted)
-
  CheckTextureMemory();                                 // check available tex memory
 
  if(bKeepRatio) SetAspectRatio();                      // set ratio
-
- if(iShowFPS)                                          // user wants FPS display on startup?
-  {
-   ulKeybits|=KEY_SHOWFPS;                             // -> ok, turn display on
-   szDispBuf[0]=0;
-   BuildDispMenu(0);
-  }
  
  bIsFirstFrame = FALSE;                                // we have survived the first frame :)
 
@@ -718,17 +656,6 @@ int GLinitialize()
 void GLcleanup() 
 {                                                     
  KillDisplayLists();                                   // bye display lists
-
- if(iUseScanLines)                                     // scanlines used?
-  {
-   if(iScanBlend<0)
-    {
-     if(gTexScanName!=0)                               // some scanline tex?
-      glDeleteTextures(1, &gTexScanName);              // -> delete it
-     gTexScanName=0;
-    }
-   else glDeleteLists(uiScanLine,1);                   // otherwise del scanline display list
-  }
 
  CleanupTextureStore();                                // bye textures
 

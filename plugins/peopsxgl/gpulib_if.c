@@ -16,8 +16,12 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "pgxp_gpu.c"
+#include "gte_accuracy.c"
+#include "soft.c"
 #include "draw.c"
 #include "texture.c"
+#include "soft.h"
 #include "prim.c"
 #include "hud.c"
 
@@ -29,7 +33,7 @@ short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coor
 //long           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
 //long           GlobalTextREST,GlobalTextABR,GlobalTextPAGE;
 
-//unsigned long dwGPUVersion;
+unsigned int dwGPUVersion;
 int           iGPUHeight=512;
 int           iGPUHeightMask=511;
 int           GlobalTextIL;
@@ -41,15 +45,15 @@ GLfloat         gl_z=0.0f;
 BOOL            bNeedInterlaceUpdate;
 BOOL            bNeedRGB24Update;
 BOOL            bChangeWinMode;
-//long            lGPUstatusRet;
-//unsigned long   ulGPUInfoVals[16];
+int            lGPUstatusRet;
+unsigned int   ulGPUInfoVals[16];
 VRAMLoad_t      VRAMWrite;
 VRAMLoad_t      VRAMRead;
 int             iDataWriteMode;
 int             iDataReadMode;
 
-//long            lClearOnSwap;
-//long            lClearOnSwapColor;
+int            lClearOnSwap;
+int            lClearOnSwapColor;
 BOOL            bSkipNextFrame;
 
 PSXDisplay_t    PSXDisplay;
