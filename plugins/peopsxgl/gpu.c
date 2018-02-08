@@ -17,7 +17,7 @@
  ***************************************************************************/
 
 // !!! enable this, if Linux XF86VidMode is not supported: 
-//#define NOVMODE
+#define NOVMODE
 
 #include "stdafx.h"
 
@@ -35,8 +35,13 @@ static int iOldMode=0;
 
 #endif
 
+#if defined(__linux__)
+#include <sys/wait.h>
+#endif
+
 #define _IN_GPU
 
+#include "stdafx.h"
 #include "externals.h"
 #include "gpu.h"
 #include "draw.h"
@@ -44,11 +49,11 @@ static int iOldMode=0;
 #include "prim.h"
 #include "psemu_plugin_defs.h"
 #include "texture.h"
-#include "menu.h"
+//#include "menu.h"
 #include "fps.h"
 #include "key.h"
 #include "gte_accuracy.h"
-#include "PGXP_gpu.h"
+//#include "pgxp_gpu.h"
 #ifdef _WINDOWS
 #include "resource.h"
 #include "ssave.h"
@@ -116,10 +121,12 @@ signed   int   *psxVsl;
 // macro for easy access to packet information
 #define GPUCOMMAND(x) ((x>>24) & 0xff)
 
-GLfloat         gl_z=0.0f;
+//GLfloat         gl_z=0.0f;
 BOOL            bNeedInterlaceUpdate=FALSE;
 BOOL            bNeedRGB24Update=FALSE;
 BOOL            bChangeWinMode=FALSE;
+GLuint*		fbo;
+
 
 #ifdef _WINDOWS
 extern HGLRC    GLCONTEXT;
@@ -127,6 +134,7 @@ extern HGLRC    GLCONTEXT;
 
 uint32_t        ulStatusControl[256];
 
+#if 0
 ////////////////////////////////////////////////////////////////////////
 // global GPU vars
 ////////////////////////////////////////////////////////////////////////
@@ -169,6 +177,7 @@ short           imageX0,imageX1;
 short           imageY0,imageY1;
 BOOL            bDisplayNotSet = TRUE;
 GLuint          uiScanLine=0;
+int             iUseScanLines=0;
 float           iScanlineColor[] = {0,0,0, 0.3f}; // easy on the eyes.
 int             lSelectedSlot=0;
 unsigned char * pGfxCardScreen=0;
@@ -181,6 +190,26 @@ int             iFakePrimBusy = 0;
 int             iRumbleVal    = 0;
 int             iRumbleTime   = 0;
 uint32_t        vBlank=0;
+#endif
+
+#if 1
+unsigned char * pGfxCardScreen=0;
+int             iFakePrimBusy = 0;
+int             iRumbleVal    = 0;
+int             iRumbleTime   = 0;
+static int      GPUdataRet;
+
+static uint32_t      gpuDataM[256];
+static unsigned char gpuCommand = 0;
+static int           gpuDataC = 0;
+static int           gpuDataP = 0;
+
+// possible psx display widths
+short dispWidths[8] = {256,320,512,640,368,384,512,640};
+#endif
+
+static void (*rearmed_get_layer_pos)(int *x, int *y, int *w, int *h);
+static void (*flip_cb)(void);
 
 ////////////////////////////////////////////////////////////////////////
 // stuff to make this a true PDK module
@@ -360,6 +389,11 @@ char * GetConfigInfos(int hW)
  
  strcat(pB,szTxt);             
  //----------------------------------------------------//
+ sprintf(szTxt,"Misc:\r\n- Scanlines: %s",szO[iUseScanLines]);
+ strcat(pB,szTxt);
+ if(iUseScanLines) sprintf(szTxt," [%d]\r\n",iScanBlend);
+ else strcpy(szTxt,"\r\n");
+ strcat(pB,szTxt);
  sprintf(szTxt,"- Line mode: %s\r\n",szO[bUseLines]);
  strcat(pB,szTxt);
 // sprintf(szTxt,"- Line AA: %s\r\n",szO[bUseAntiAlias]);
@@ -509,6 +543,8 @@ void CALLBACK GPUmakeSnapshot(void)
 
 long CALLBACK GPUinit()
 {
+ FUNC;
+
  memset(ulStatusControl,0,256*sizeof(uint32_t));
 
  // different ways of accessing PSX VRAM
@@ -582,496 +618,17 @@ long CALLBACK GPUinit()
 }                             
 
 ////////////////////////////////////////////////////////////////////////
-// GPU OPEN: funcs to open up the gpu display (Windows)
-////////////////////////////////////////////////////////////////////////
-
-#ifdef _WINDOWS
-
-void ChangeDesktop()                                   // change destop resolution
-{
- DEVMODE dv;long lRes,iTry=0;                       
-
- while(iTry<10)                                        // keep on hammering...
-  {
-   memset(&dv,0,sizeof(DEVMODE));
-   dv.dmSize=sizeof(DEVMODE);
-   dv.dmBitsPerPel=iColDepth;
-   dv.dmPelsWidth=iResX;
-   dv.dmPelsHeight=iResY;
-
-   dv.dmFields=DM_BITSPERPEL|DM_PELSWIDTH|DM_PELSHEIGHT;
-
-   lRes=ChangeDisplaySettings(&dv,0);                  // ...hammering the anvil
-
-   if(lRes==DISP_CHANGE_SUCCESSFUL) return;
-   iTry++;Sleep(10);
-  }
-}
-
-////////////////////////////////////////////////////////////////////////
-// OPEN interface func: attention! 
-// some emus are calling this func in their main Window thread,
-// but all other interface funcs (to draw stuff) in a different thread!
-// that's a problem, since OGL is thread safe! Therefore we cannot 
-// initialize the OGL stuff right here, we simply set a "bIsFirstFrame = TRUE"
-// flag, to initialize OGL on the first real draw call.
-// btw, we also call this open func ourselfes, each time when the user 
-// is changing between fullscreen/window mode (ENTER key)
-// btw part 2: in windows the plugin gets the window handle from the
-// main emu, and doesn't create it's own window (if it would do it,
-// some PAD or SPU plugins would not work anymore)
-////////////////////////////////////////////////////////////////////////
-
-HMENU hPSEMenu=NULL;
-
-long CALLBACK GPUopen(HWND hwndGPU)                    
-{
- HDC hdc;RECT r;DEVMODE dv;
-
- hWWindow = hwndGPU;                                   // store hwnd globally
-
- InitKeyHandler();                                     // init key handler (subclass window)
-
- if(bChangeWinMode)                                    // user wants to change fullscreen/window mode?
-  {
-   ReadWinSizeConfig();                                // -> get sizes again
-  }
- else                                                  // first real startup
-  {
-   ReadConfig();                                       // -> read config from registry
-
-   SetFrameRateConfig();                               // -> setup frame rate stuff
-  }
-
- if(iNoScreenSaver) EnableScreenSaver(FALSE);          // at least we can try 
-
-
- memset(&dv,0,sizeof(DEVMODE));
- dv.dmSize=sizeof(DEVMODE);
- EnumDisplaySettings(NULL,ENUM_CURRENT_SETTINGS,&dv);
-
- bIsFirstFrame = TRUE;                                 // flag: we have to init OGL later in windows!
-
- if(bWindowMode)                                       // win mode?
-  {
-   DWORD dw=GetWindowLong(hWWindow, GWL_STYLE);        // -> adjust wnd style (owndc needed by some stupid ogl drivers)
-   dw&=~WS_THICKFRAME;
-   dw|=WS_BORDER|WS_CAPTION|CS_OWNDC;
-   SetWindowLong(hWWindow, GWL_STYLE, dw);
-
-   hPSEMenu=GetMenu(hWWindow);                         // -> hide emu menu (if any)
-   if(hPSEMenu!=NULL) SetMenu(hWWindow,NULL);
-
-   iResX=LOWORD(iWinSize);iResY=HIWORD(iWinSize);
-   ShowWindow(hWWindow,SW_SHOWNORMAL);
-
-   MoveWindow(hWWindow,                                // -> center wnd
-      GetSystemMetrics(SM_CXFULLSCREEN)/2-iResX/2,
-      GetSystemMetrics(SM_CYFULLSCREEN)/2-iResY/2,
-      iResX+GetSystemMetrics(SM_CXFIXEDFRAME)+3,
-      iResY+GetSystemMetrics(SM_CYFIXEDFRAME)+GetSystemMetrics(SM_CYCAPTION)+3,
-      TRUE);
-   UpdateWindow(hWWindow);                             // -> let windows do some update
-
-   if(dv.dmBitsPerPel==16 || dv.dmBitsPerPel==32)      // -> overwrite user color info with desktop color info
-    iColDepth=dv.dmBitsPerPel;
-  }
- else                                                  // fullscreen mode:
-  {
-   if(dv.dmBitsPerPel!=(unsigned int)iColDepth ||      // -> check, if we have to change resolution
-      dv.dmPelsWidth !=(unsigned int)iResX ||
-      dv.dmPelsHeight!=(unsigned int)iResY)
-    bChangeRes=TRUE; else bChangeRes=FALSE;
-
-   if(bChangeRes) ChangeDesktop();                     // -> change the res (had to do an own func because of some MS 'optimizations')
-
-   SetWindowLong(hWWindow, GWL_STYLE, CS_OWNDC);       // -> adjust wnd style as well (to be sure)
-                
-   hPSEMenu=GetMenu(hWWindow);                         // -> hide menu
-   if(hPSEMenu!=NULL) SetMenu(hWWindow,NULL);
-   ShowWindow(hWWindow,SW_SHOWMAXIMIZED);              // -> max mode
-  }
-
- rRatioRect.left   = rRatioRect.top=0;
- rRatioRect.right  = iResX;
- rRatioRect.bottom = iResY;
-
- r.left=r.top=0;r.right=iResX;r.bottom=iResY;          // hack for getting a clean black window until OGL gets initialized
- hdc = GetDC(hWWindow);
- FillRect(hdc,&r,(HBRUSH)GetStockObject(BLACK_BRUSH));
- bSetupPixelFormat(hdc);
- ReleaseDC(hWWindow,hdc);
-
- bDisplayNotSet = TRUE; 
- bSetClip=TRUE;
-
- SetFixes();                                           // setup game fixes
-
- InitializeTextureStore();                             // init texture mem
-
- resetGteVertices();
-
-// lGPUstatusRet = 0x74000000;
-
-// with some emus, we could do the OGL init right here... oh my
-// if(bIsFirstFrame) GLinitialize();
-
- return 0;
-}
-
-#elif !defined (_MACGL)
-
-////////////////////////////////////////////////////////////////////////
-// LINUX GPU OPEN: func to open up the gpu display (X stuff)
-// please note: in linux we are creating our own display, and we return
-// the display ID to the main emu... that's cleaner
-////////////////////////////////////////////////////////////////////////
-
-char * pCaptionText=0;
-int    bFullScreen=0;
-Display              *display;
-
-static Cursor        cursor;
-static XVisualInfo   *myvisual;
-static Colormap      colormap;
-static Window        window;
-
-static int bModeChanged=0;
-
-typedef struct
-{
-#define MWM_HINTS_DECORATIONS   2
-  long flags;
-  long functions;
-  long decorations;
-  long input_mode;
-} MotifWmHints;
-
-static int dbdepat[]={GLX_RGBA,GLX_DOUBLEBUFFER,GLX_DEPTH_SIZE,16,None};
-static int dbnodepat[]={GLX_RGBA,GLX_DOUBLEBUFFER,None};
-static GLXContext cx;
-
-static int fx=0;
-
-////////////////////////////////////////////////////////////////////////
-
-void osd_close_display (void)                          // close display
-{
- if(display)                                           // display exists?
-  {
-   glXDestroyContext(display,cx);                      // -> kill context
-   XFreeColormap(display, colormap);                   // -> kill colormap
-   XSync(display,False);                               // -> sync events
-
-#ifndef NOVMODE
-   if(bModeChanged)                                    // -> repair screen mode
-    {
-     int myscreen=DefaultScreen(display);
-     XF86VidModeSwitchToMode(display,myscreen,         // --> switch mode back
-                             modes[iOldMode]);
-     XF86VidModeSetViewPort(display,myscreen,0,0);     // --> set viewport upperleft
-     free(modes);                                      // --> finally kill mode infos
-     bModeChanged=0;                                   // --> done
-    }
-#endif
-
-   XCloseDisplay(display);                             // -> close display
-  }
-}
-
-////////////////////////////////////////////////////////////////////////
-
-void sysdep_create_display(void)                       // create display
-{
- XSetWindowAttributes winattr;float fxgamma=2;
- int myscreen;char gammastr[14];
- Screen * screen;XEvent event;
- XSizeHints hints;XWMHints wm_hints;
- MotifWmHints mwmhints;
- Atom mwmatom;
- Atom delwindow;
- XClassHint* classHint;
- char *glxfx;
-
- glxfx=getenv("MESA_GLX_FX");                          // 3dfx mesa fullscreen flag
- if(glxfx)
-  {
-   if(glxfx[0]=='f')                                   // -> yup, fullscreen needed
-    {
-     fx=1;                                             // -> raise flag
-     putenv("FX_GLIDE_NO_SPLASH=");
-     sprintf(gammastr,"SST_GAMMA=%2.1f",fxgamma);      // -> set gamma
-     putenv(gammastr);
-    }
-  }
-
- display=XOpenDisplay(NULL);                           // open display
- if(!display)                                          // no display?
-  {
-   fprintf (stderr,"Failed to open display!!!\n");
-   osd_close_display();
-   return;                                             // -> bye
-  }
-
- myscreen=DefaultScreen(display);                      // get screen id
-
-#ifdef NOVMODE
- if(bFullScreen) {fx=1;bModeChanged=0;}
-#else
- if(bFullScreen)
-  {
-   XF86VidModeModeLine mode;
-   int nmodes,iC;
-   fx=1;                                               // raise flag
-   XF86VidModeGetModeLine(display,myscreen,&iC,&mode); // get actual mode info
-   if(mode.privsize) XFree(mode.private);              // no need for private stuff
-   bModeChanged=0;                                     // init mode change flag
-   if(iResX!=mode.hdisplay || iResY!=mode.vdisplay)    // wanted mode is different?
-    {
-     XF86VidModeGetAllModeLines(display,myscreen,      // -> enum all mode infos
-                                &nmodes,&modes);
-     if(modes)                                         // -> infos got?
-      {
-       for(iC=0;iC<nmodes;++iC)                        // -> loop modes
-        {
-         if(mode.hdisplay==modes[iC]->hdisplay &&      // -> act mode found?
-            mode.vdisplay==modes[iC]->vdisplay)        //    if yes: store mode id
-          iOldMode=iC;
-
-         if(iResX==modes[iC]->hdisplay &&              // -> wanted mode found?
-            iResY==modes[iC]->vdisplay)
-          {
-           XF86VidModeSwitchToMode(display,myscreen,   // --> switch to mode
-                                   modes[iC]);
-           XF86VidModeSetViewPort(display,myscreen,0,0);
-           bModeChanged=1;                             // --> raise flag for repairing mode on close
-          }
-        }
-
-       if(bModeChanged==0)                             // -> no mode found?
-        {
-         free(modes);                                  // --> free infos
-         printf("%s", "No proper fullscreen mode found!\n"); // --> some info output
-        }
-      }
-    }
-  }
-#endif
-
- screen=DefaultScreenOfDisplay(display);
-
- if(iZBufferDepth)                                      // visual (with or without zbuffer)
-      myvisual=glXChooseVisual(display,myscreen,dbdepat);
- else myvisual=glXChooseVisual(display,myscreen,dbnodepat);
-
- if(!myvisual)                                         // no visual?
-  {
-   fprintf(stderr,"Failed to obtain visual!!!\n");     // -> bye
-   osd_close_display();
-   return;
-  }
-
- cx=glXCreateContext(display,myvisual,0,GL_TRUE);      // create rendering context
-
- if(!cx)                                               // no context?
-  {
-   fprintf(stderr,"Failed to create OpenGL context!!!\n");
-   osd_close_display();                                // -> bxe
-   return;
-  }
-
- // pffff... much work for a simple blank cursor... oh, well...
- if(!bFullScreen) cursor=XCreateFontCursor(display,XC_left_ptr);
- else
-  {
-   Pixmap p1,p2;XImage * img;
-   XColor b,w;unsigned char * idata;
-   XGCValues GCv;
-   GC        GCc;
-
-   memset(&b,0,sizeof(XColor));
-   memset(&w,0,sizeof(XColor));
-   idata=(unsigned char *)malloc(8);
-   memset(idata,0,8);
-
-   p1=XCreatePixmap(display,RootWindow(display,myvisual->screen),8,8,1);
-   p2=XCreatePixmap(display,RootWindow(display,myvisual->screen),8,8,1);
-
-   img = XCreateImage(display,myvisual->visual,
-                      1,XYBitmap,0,idata,8,8,8,1);
-
-   GCv.function   = GXcopy;
-   GCv.foreground = ~0;
-   GCv.background =  0;
-   GCv.plane_mask = AllPlanes;
-   GCc = XCreateGC(display,p1,
-                   (GCFunction|GCForeground|GCBackground|GCPlaneMask),&GCv);
-
-   XPutImage(display, p1,GCc,img,0,0,0,0,8,8);
-   XPutImage(display, p2,GCc,img,0,0,0,0,8,8);
-   XFreeGC(display, GCc);
-
-   cursor = XCreatePixmapCursor(display,p1,p2,&b,&w,0,0);
-
-   XFreePixmap(display,p1);
-   XFreePixmap(display,p2);
-   XDestroyImage(img);                                 // will free idata as well
-  }
-
- colormap=XCreateColormap(display,                     // create colormap
-                          RootWindow(display,myvisual->screen),
-                          myvisual->visual,AllocNone);
-
- winattr.background_pixel=0;
- winattr.border_pixel=WhitePixelOfScreen(screen);
- winattr.bit_gravity=ForgetGravity;
- winattr.win_gravity=NorthWestGravity;
- winattr.backing_store=NotUseful;
- winattr.override_redirect=False;
- winattr.save_under=False;
- winattr.event_mask=ExposureMask |
-                    VisibilityChangeMask |
-                    FocusChangeMask |
-                    KeyPressMask | KeyReleaseMask |
-                    ButtonPressMask | ButtonReleaseMask |
-                    PointerMotionMask;
- winattr.do_not_propagate_mask=0;
- winattr.colormap=colormap;
- winattr.cursor=None;
-
- window=XCreateWindow(display,                         // create own window
-             RootWindow(display,DefaultScreen(display)),
-             0,0,iResX,iResY,
-             0,myvisual->depth,
-             InputOutput,myvisual->visual,
-             CWBorderPixel | CWBackPixel |
-             CWEventMask | CWDontPropagate |
-             CWColormap | CWCursor | CWEventMask,
-             &winattr);
-
- if(!window)                                           // no window?
-  {
-   fprintf(stderr,"Failed in XCreateWindow()!!!\n");
-   osd_close_display();                                // -> bye
-   return;
-  }
-
- delwindow = XInternAtom(display,"WM_DELETE_WINDOW",0);
- XSetWMProtocols(display, window, &delwindow, 1);
-
- hints.flags=PMinSize|PMaxSize;                        // hints
- if(fx) hints.flags|=USPosition|USSize;
- else   hints.flags|=PSize;
-
- hints.min_width   = hints.max_width  = hints.base_width  = iResX;
- hints.min_height  = hints.max_height = hints.base_height = iResY;
-
- wm_hints.input=1;
- wm_hints.flags=InputHint;
-
- XSetWMHints(display,window,&wm_hints);
- XSetWMNormalHints(display,window,&hints);
-
- if(!pCaptionText)
-     pCaptionText = "Pete MesaGL PSX Gpu";
-
- // set the WM_NAME and WM_CLASS of the window
-
- // set the titlebar name
- XStoreName(display, window, pCaptionText);
-
- // set the name and class hints for the window manager to use
- classHint = XAllocClassHint();
- if(classHint)
- {
-   classHint->res_name = pCaptionText;
-   classHint->res_class = pCaptionText;
- }
-
- XSetClassHint(display, window, classHint);
- XFree(classHint);
-
- XDefineCursor(display,window,cursor);                 // cursor
-
- if(fx)                                                // window title bar hack
-  {
-   mwmhints.flags=MWM_HINTS_DECORATIONS;
-   mwmhints.decorations=0;
-   mwmatom=XInternAtom(display,"_MOTIF_WM_HINTS",0);
-   XChangeProperty(display,window,mwmatom,mwmatom,32,
-                   PropModeReplace,(unsigned char *)&mwmhints,4);
-  }
-
- XMapRaised(display,window);
- XClearWindow(display,window);
- XWindowEvent(display,window,ExposureMask,&event);
- glXMakeCurrent(display,window,cx);
-
-/* 
- printf("%s", glGetString(GL_VENDOR));
- printf("\n");
- printf("%s", glGetString(GL_RENDERER));
- printf("\n");
-*/
-
- if (fx)                                               // after make current: fullscreen resize
-  {
-   XResizeWindow(display,window,screen->width,screen->height);
-   hints.min_width   = hints.max_width = hints.base_width = screen->width;
-   hints.min_height= hints.max_height = hints.base_height = screen->height;
-   XSetWMNormalHints(display,window,&hints);
-
-   // set the window layer for GNOME
-   {
-    XEvent xev;
-
-    memset(&xev, 0, sizeof(xev));
-    xev.xclient.type = ClientMessage;
-    xev.xclient.serial = 0;
-    xev.xclient.send_event = 1;
-    xev.xclient.message_type = XInternAtom(display, "_NET_WM_STATE", 0);
-    xev.xclient.window = window;
-    xev.xclient.format = 32;
-    xev.xclient.data.l[0] = 1;
-    xev.xclient.data.l[1] = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", 0);
-    xev.xclient.data.l[2] = 0;
-    xev.xclient.data.l[3] = 0;
-    xev.xclient.data.l[4] = 0;
-
-    XSendEvent(display, RootWindow(display, DefaultScreen(display)), 0,
-      SubstructureRedirectMask | SubstructureNotifyMask, &xev);
-   }
-  }
-}
-
-#endif // !defined(_MACGL)
-
-#ifndef _WINDOWS
-
-#if defined(_MACGL)
-extern char * pCaptionText;
-#endif
-
-////////////////////////////////////////////////////////////////////////
 
 long GPUopen(unsigned long * disp,char * CapText,char * CfgFile)
 {
- pCaptionText=CapText;
-#if !defined (_MACGL)
+ FUNC;
  pConfigFile=CfgFile;
-#endif
 
  ReadConfig();                                         // read text file for config
 
  SetFrameRateConfig();                                 // setup frame rate stuff
 
  bIsFirstFrame = TRUE;                                 // we have to init later (well, no really... in Linux we do all in GPUopen)
-
-#if defined (_MACGL)
- unsigned long display = ulInitDisplay();
-#else
- sysdep_create_display();                              // create display
-#endif
  
  InitializeTextureStore();                             // init texture mem
 
@@ -1081,50 +638,17 @@ long GPUopen(unsigned long * disp,char * CapText,char * CfgFile)
 
  GLinitialize();                                       // init opengl
 
- if(disp)
-  {
-#if defined (_MACGL)
-   *disp = display;
-#else
-   *disp=(unsigned long *)display;                       // return display ID to main emu
-#endif
-  }
+// MakeDisplayLists();
 
- if(display) return 0;
- return -1;
+ resetGteVertices();
+
+ return 0;
+
 }
-
-#endif // ndef _WINDOWS
-
-
 
 ////////////////////////////////////////////////////////////////////////
 // close
 ////////////////////////////////////////////////////////////////////////
-
-#ifdef _WINDOWS
-
-long CALLBACK GPUclose()                               // WINDOWS CLOSE
-{
- ExitKeyHandler();
-
- GLcleanup();                                          // close OGL
-
- if(bChangeRes)                                        // change res back
-  ChangeDisplaySettings(NULL,0);
-
- if(hPSEMenu)                                          // set menu again
-  SetMenu(hWWindow,hPSEMenu);
-
- if(pGfxCardScreen) free(pGfxCardScreen);              // free helper memory
- pGfxCardScreen=0;
-
- if(iNoScreenSaver) EnableScreenSaver(TRUE);           // enable screen saver again
-
- return 0;
-}
-
-#else
 
 long GPUclose()                                        // LINUX CLOSE
 {
@@ -1132,15 +656,15 @@ long GPUclose()                                        // LINUX CLOSE
 
  if(pGfxCardScreen) free(pGfxCardScreen);              // free helper memory
  pGfxCardScreen=0;
+#if 0
 #if defined (_MACGL)
  CloseDisplay();
 #else
  osd_close_display();                                  // destroy display
 #endif
+#endif
  return 0;
 }
-
-#endif
 
 ////////////////////////////////////////////////////////////////////////
 // I shot the sheriff... last function called from emu 
@@ -1214,16 +738,16 @@ static __inline void XPRIMdrawTexturedQuad(OGLVertex* vertex1, OGLVertex* vertex
 
  glBegin(GL_QUAD_STRIP);
   glTexCoord2fv(&vertex1->sow);
-  PGXP_glVertexfv(&vertex1->x);
+  glVertex3fv(&vertex1->x);
   
   glTexCoord2fv(&vertex2->sow);
-  PGXP_glVertexfv(&vertex2->x);
+  glVertex3fv(&vertex2->x);
   
   glTexCoord2fv(&vertex4->sow);
-  PGXP_glVertexfv(&vertex4->x);
+  glVertex3fv(&vertex4->x);
   
   glTexCoord2fv(&vertex3->sow);
-  PGXP_glVertexfv(&vertex3->x);
+  glVertex3fv(&vertex3->x);
  glEnd();
 }
 
@@ -1233,7 +757,9 @@ static __inline void XPRIMdrawTexturedQuad(OGLVertex* vertex1, OGLVertex* vertex
 
 void SetScanLines(void)
 {
+// FUNC;
  glLoadIdentity();
+if ((iResX!=0) && (iResY!=0))
  glOrtho(0,iResX,iResY, 0, -1, 1);
 
  if(bKeepRatio)
@@ -1311,7 +837,6 @@ void SetScanLines(void)
 
  //PGXP_SetMatrix(0, PSXDisplay.DisplayMode.x, PSXDisplay.DisplayMode.y, 0, -1, 1);
 
-
  if(bKeepRatio)
   glViewport(rRatioRect.left,
              iResY-(rRatioRect.top+rRatioRect.bottom),
@@ -1328,8 +853,8 @@ void SetScanLines(void)
 
 void BlurBackBuffer(void)
 {
+ FUNC;
  if(!gTexBlurName) return;
-
  if(bKeepRatio) glViewport(0,0,iResX,iResY);
 
  glDisable(GL_SCISSOR_TEST);
@@ -1397,8 +922,8 @@ void BlurBackBuffer(void)
 
 void UnBlurBackBuffer(void)
 {
+ FUNC;
  if(!gTexBlurName) return;
-
  if(bKeepRatio) glViewport(0,0,iResX,iResY);
 
  glDisable(GL_SCISSOR_TEST);
@@ -1464,16 +989,9 @@ int iSkipTwo=0;
 void updateDisplay(void)                               // UPDATE DISPLAY
 {
  BOOL bBlur=FALSE;
-
-#ifdef _WINDOWS
- HDC hdc=GetDC(hWWindow);                              // windows:
- wglMakeCurrent(hdc,GLCONTEXT);                        // -> make context current again
-#endif
-#if defined (_MACGL)
- BringContextForward();
-#endif
  bFakeFrontBuffer=FALSE;
  bRenderFrontBuffer=FALSE;
+ //glBindFramebuffer(GL_FRAMEBUFFER,fbo);
 
  if(iRenderFVR)                                        // frame buffer read fix mode still active?
   {
@@ -1530,18 +1048,28 @@ void updateDisplay(void)                               // UPDATE DISPLAY
  if(iBlurBuffer && !bSkipNextFrame)                    // "blur display" activated?
   {BlurBackBuffer();bBlur=TRUE;}                       // -> blur it
 
- if(usCursorActive) ShowGunCursor();                   // "gun cursor" wanted? show 'em
+ if(iUseScanLines) SetScanLines();                     // "scan lines" activated? do it
+
+// if(usCursorActive) ShowGunCursor();                   // "gun cursor" wanted? show 'em
 
  if(dwActFixes&128)                                    // special FPS limitation mode?
   {
    if(bUseFrameLimit) PCFrameCap();                    // -> ok, do it
-   if(bUseFrameSkip)  
+   if(bUseFrameSkip || ulKeybits&KEY_SHOWFPS)  
     PCcalcfps();         
   }
 
- if(gTexPicName) DisplayPic();                         // some gpu info picture active? display it
+// if(gTexPicName) DisplayPic();                         // some gpu info picture active? display it
 
  if(bSnapShot) DoSnapShot();                           // snapshot key pressed? cheeeese :)
+
+#if 0
+ if(ulKeybits&KEY_SHOWFPS)                             // wanna see FPS?
+  {
+   sprintf(szDispBuf,"%06.1f",fps_cur);
+   DisplayText();                                      // -> show it
+  }
+#endif
 
  //----------------------------------------------------//
  // main buffer swapping (well, or skip it)
@@ -1551,13 +1079,8 @@ void updateDisplay(void)                               // UPDATE DISPLAY
    if(!bSkipNextFrame) 
     {
      if(iDrawnSomething)
-#ifdef _WINDOWS
-      SwapBuffers(wglGetCurrentDC());                  // -> to skip or not to skip
-#elif defined(_MACGL)
-     DoBufferSwap();
-#else
-      glXSwapBuffers(display,window);
-#endif
+      if(flip_cb)
+       flip_cb;
     }
    if(dwActFixes&0x180)                                // -> special old frame skipping: skip max one in a row
     {
@@ -1567,18 +1090,10 @@ void updateDisplay(void)                               // UPDATE DISPLAY
     }
    else FrameSkip();
   }
- else                                                  // no skip ?
-  {
-   if(iDrawnSomething)
-#ifdef _WINDOWS
-    SwapBuffers(wglGetCurrentDC());                    // -> swap
-#elif defined(_MACGL)
-   DoBufferSwap();
-#else
-    glXSwapBuffers(display,window);
-#endif
-  }
 
+if (flip_cb)
+	flip_cb();
+#if 1
  iDrawnSomething=0;
 
  //----------------------------------------------------//
@@ -1664,7 +1179,8 @@ void updateDisplay(void)                               // UPDATE DISPLAY
  ReleaseDC(hWWindow,hdc);                              // ! important !
 #endif
 
- if(ulKeybits&KEY_RESETTEXSTORE) ResetStuff();         // reset on gpu mode changes? do it before next frame is filled
+// if(ulKeybits&KEY_RESETTEXSTORE) ResetStuff();         // reset on gpu mode changes? do it before next frame is filled
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1680,31 +1196,23 @@ void updateFrontDisplay(void)
 
  if(iBlurBuffer) BlurBackBuffer();
 
- if(usCursorActive) ShowGunCursor();
+ if(iUseScanLines) SetScanLines();
+
+// if(usCursorActive) ShowGunCursor();
 
  bFakeFrontBuffer=FALSE;
  bRenderFrontBuffer=FALSE;
 
- if(gTexPicName) DisplayPic();
- //if(ulKeybits&KEY_SHOWFPS) DisplayText();
+// if(gTexPicName) DisplayPic();
+/*
+ if(ulKeybits&KEY_SHOWFPS) DisplayText();
+*/
 
-#ifdef _WINDOWS
-  {                                                    // windows: 
-   HDC hdc=GetDC(hWWindow);
-   wglMakeCurrent(hdc,GLCONTEXT);                      // -> make current again
-   if(iDrawnSomething)
-    SwapBuffers(wglGetCurrentDC());                    // -> swap
-   ReleaseDC(hWWindow,hdc);                            // -> ! important !
-  }
-#elif defined (_MACGL)
- if (iDrawnSomething){
-  DoBufferSwap();
- }
-#else
  if(iDrawnSomething)                                   // linux:
-  glXSwapBuffers(display,window);
-#endif
+  if(flip_cb)
+	flip_cb;
 
+ iBlurBuffer=1;
  if(iBlurBuffer) UnBlurBackBuffer();
 }
                                              
@@ -1789,6 +1297,7 @@ void ChangeDispOffsetsY(void)                          // CENTER Y
 
 void SetAspectRatio(void)
 {
+ //FUNC;
  float xs,ys,s,resx,resy;RECT r;
 
  if(!PSXDisplay.DisplayModeNew.x) return;
@@ -1797,6 +1306,7 @@ void SetAspectRatio(void)
  resx = bForceRatio43 ? 640.0f : (float)PSXDisplay.DisplayModeNew.x;
  resy = bForceRatio43 ? 480.0f : (float)PSXDisplay.DisplayModeNew.y;
 
+#if 1
  xs=(float)iResX/resx;
  ys=(float)iResY/resy;
 
@@ -1848,7 +1358,18 @@ void SetAspectRatio(void)
   }
 
  rRatioRect=r;
+#else
+ // pcsx-rearmed hack
+ if (rearmed_get_layer_pos != NULL)
+   rearmed_get_layer_pos(&rRatioRect.left, &rRatioRect.top, &rRatioRect.right, &rRatioRect.bottom);
+rRatioRect.left = 0;
+rRatioRect.top = 0;
+rRatioRect.right = 640;
+rRatioRect.bottom = 480;
 
+#endif
+
+ //glBindFramebuffer(GL_FRAMEBUFFER,fbo);
 
  glViewport(rRatioRect.left,
             iResY-(rRatioRect.top+rRatioRect.bottom),
@@ -1877,8 +1398,7 @@ void updateDisplayIfChanged(void)
    glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
              PSXDisplay.DisplayModeNew.y, 0, -1, 1);
 
- //  PGXP_SetMatrix(0, PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0, -1, 1);
-
+   //PGXP_SetMatrix(0, PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0, -1, 1);
 
    if(bKeepRatio) SetAspectRatio();
   }
@@ -1914,19 +1434,6 @@ void updateDisplayIfChanged(void)
  if(bUp) updateDisplay();                              // yeah, real update (swap buffer)
 }
 
-////////////////////////////////////////////////////////////////////////
-// window mode <-> fullscreen mode (windows)
-////////////////////////////////////////////////////////////////////////
-
-#ifdef _WINDOWS
-void ChangeWindowMode(void)
- {
-  GPUclose();
-  bWindowMode=!bWindowMode;
-  GPUopen(hWWindow);
-  bChangeWinMode=FALSE;
- }
-#endif
 
 ////////////////////////////////////////////////////////////////////////
 // swap update check (called by psx vsync function)
@@ -1990,6 +1497,8 @@ BOOL bSwapCheck(void)
 
 void CALLBACK GPUcursor(int iPlayer,int x,int y)
 {
+ FUNC;
+#if 0
  if(iPlayer<0) return;
  if(iPlayer>7) return;
 
@@ -2002,6 +1511,7 @@ void CALLBACK GPUcursor(int iPlayer,int x,int y)
 
  ptCursorPoint[iPlayer].x=x;
  ptCursorPoint[iPlayer].y=y;
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2013,6 +1523,7 @@ static unsigned short usFirstPos=2;
 
 void CALLBACK GPUupdateLace(void)
 {
+ //FUNC;
  //if(!(dwActFixes&0x1000))                               
  // STATUSREG^=0x80000000;                               // interlaced bit toggle, if the CC game fix is not active (see gpuReadStatus)
 
@@ -2044,6 +1555,9 @@ void CALLBACK GPUupdateLace(void)
 #if defined(_WINDOWS) || defined(_MACGL)
  if(bChangeWinMode) ChangeWindowMode();
 #endif
+
+
+ //bIsFirstFrame = 1;		//reinitialize GL state at the start of the next frame
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2965,13 +2479,6 @@ ENDVRAM:
      if(gpuDataP == gpuDataC)
       {
        gpuDataC=gpuDataP=0;
-	   for (unsigned int i = 0; i < 4; i++)	//iCB: remove stale vertex data
-	   {
-		   vertex[i].x = vertex[i].y = 0.f;
-		   vertex[i].z = 0.95f;
-		   vertex[i].w = 1.f;
-		   vertex[i].PGXP_flag = 0;
-	   }
        primFunc[gpuCommand]((unsigned char *)gpuDataM);
 
        if(dwEmuFixes&0x0001 || dwActFixes&0x20000)     // hack for emulating "gpu busy" in some games
@@ -3110,11 +2617,10 @@ static __inline BOOL CheckForEndlessLoop(uint32_t laddr)
 
 long CALLBACK GPUdmaChain(uint32_t *baseAddrL, uint32_t addr)
 {
+ //FUNC;
  uint32_t dmaMem;
  unsigned char * baseAddrB;
  short count;unsigned int DMACommandCounter = 0;
-
- if(bIsFirstFrame) GLinitialize();
 
  GPUIsBusy;
 
@@ -3136,11 +2642,11 @@ long CALLBACK GPUdmaChain(uint32_t *baseAddrL, uint32_t addr)
 
    if (count > 0)
    {
-	   PGXP_SetAddress(dmaMem >> 2, &baseAddrL[dmaMem >> 2], count);
+	   //PGXP_SetAddress(dmaMem >> 2, &baseAddrL[dmaMem >> 2], count);
 	   GPUwriteDataMem(&baseAddrL[dmaMem >> 2], count);
    }
    else
-	   PGXP_SetDepth(depthCount++);
+	   //PGXP_SetDepth(depthCount++);
 
    addr = baseAddrL[addr>>2]&0xffffff;
   }
@@ -3157,6 +2663,7 @@ long CALLBACK GPUdmaChain(uint32_t *baseAddrL, uint32_t addr)
 
 void CALLBACK GPUabout(void)
 {
+ FUNC;
 #ifdef _WINDOWS
 	HWND hWP=GetActiveWindow();                           // to be sure
 	DialogBox(hInst,MAKEINTRESOURCE(IDD_DIALOG_ABOUT), hWP,(DLGPROC)AboutDlgProc);
@@ -3562,9 +3069,11 @@ void CALLBACK GPUgetScreenPic(unsigned char * pMem)
 
 void CALLBACK GPUshowScreenPic(unsigned char * pMem)
 {
+#if 0
  DestroyPic();
  if(pMem==0) return;
  CreatePic(pMem);
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3598,10 +3107,22 @@ void CALLBACK GPUvisualVibration(uint32_t iSmall, uint32_t iBig)
 
 void CALLBACK GPUdisplayFlags(uint32_t dwFlags)
 {
- dwCoreFlags=dwFlags;
+ //dwCoreFlags=dwFlags;
+}
+
+
+// pcsx-rearmed callbacks
+void CALLBACK GPUrearmedCallbacks(const struct rearmed_cbs *cbs)
+{
+ FUNC;
+ //rearmed_get_layer_pos = cbs[0];
+ //fbo = cbs->gpu_peopsgl.fbo;
+ flip_cb = cbs->gpu_peopsgl.flip_cb;
+ retroGetProcAddress = &cbs->gpu_peopsgl.retroGetProcAddress;
 }
 
 void CALLBACK GPUvBlank( int val )
 {
+ //FUNC;
     vBlank = val;
 }

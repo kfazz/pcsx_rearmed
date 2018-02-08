@@ -390,15 +390,15 @@ void CheckFrameRate(void)                              // called in updatelace (
      if(dwLaceCnt>=MAXLACE && bUseFrameLimit) 
       {
        if(dwLaceCnt==MAXLACE) bInitCap=TRUE;
-       FrameCap();
+       PCFrameCap();
       }
     }
-   else if(bUseFrameLimit) FrameCap();
+   else if(bUseFrameLimit) PCFrameCap();
    calcfps();                                          // -> calc fps display in skipping mode
   }                                                  
  else                                                  // -> non-skipping mode:
   {
-   if(bUseFrameLimit) FrameCap();
+   if(bUseFrameLimit) PCFrameCap();
    if(ulKeybits&KEY_SHOWFPS) calcfps();  
   }
 }

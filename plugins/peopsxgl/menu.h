@@ -27,7 +27,7 @@
 #ifndef _GL_MENU_H_
 #define _GL_MENU_H_
 
-void DisplayText(const char *ltext, int right_aligned);
+void DisplayText(void);
 void HideText(void);
 void KillDisplayLists(void);
 void MakeDisplayLists(void);

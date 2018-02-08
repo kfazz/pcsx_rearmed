@@ -27,13 +27,19 @@
 #include "cspace.h"
 #include "main.h"
 #include "plugin.h"
-#include "plugin_lib.h"
+
+
+#include "../glsym/glsym.h"
+#include "../glsym/glsym_gl.h"
+#include "../glsm/glsm.h"
+#include "../plugins/peopsxgl/gl_ext.h"
+#include "../plugins/peopsxgl/externals.h"
+//#include "plugin_lib.h"
 #include "arm_features.h"
 #include "revision.h"
 #include "libretro.h"
 
-#include "../glsym/glsym.h"
-#include "../glsm/glsm.h"
+
 
 #define RARCH_GL_FRAMEBUFFER GL_FRAMEBUFFER
 #define RARCH_GL_FRAMEBUFFER_COMPLETE GL_FRAMEBUFFER_COMPLETE
@@ -61,7 +67,8 @@ static struct retro_rumble_interface rumble;
 
 static void *vout_buf;
 static void * vout_buf_ptr;
-static int vout_width, vout_height;
+static int vout_width = 640;
+static int vout_height = 480;
 static int vout_doffs_old, vout_fb_dirty;
 static bool vout_can_dupe;
 static bool duping_enable;
@@ -151,13 +158,13 @@ static void vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp)
 
   vout_buf_ptr = vout_buf;
 
- /* if (environ_cb(RETRO_ENVIRONMENT_GET_CURRENT_SOFTWARE_FRAMEBUFFER, &fb) && fb.format == RETRO_PIXEL_FORMAT_RGB565)
+  if (environ_cb(RETRO_ENVIRONMENT_GET_CURRENT_SOFTWARE_FRAMEBUFFER, &fb) && fb.format == RETRO_PIXEL_FORMAT_RGB565)
   {
      vout_buf_ptr  = (uint16_t*)fb.data;
   }
-  */
+  
 
-     vout_buf_ptr = hw_render.get_current_framebuffer();
+    // vout_buf_ptr = hw_render.get_current_framebuffer();
 }
 
 #ifndef FRONTEND_SUPPORTS_RGB565
@@ -280,9 +287,27 @@ void out_register_libretro(struct out_driver *drv)
 	drv->feed = snd_feed;
 }
 
+static void context_reset(void);
+static void context_destroy(void);
+
+static bool retro_init_hw_context(void)
+{
+   hw_render.context_type = RETRO_HW_CONTEXT_OPENGL;
+   hw_render.context_reset = context_reset;
+   hw_render.context_destroy = context_destroy;
+   hw_render.depth = true;
+   hw_render.bottom_left_origin = true;
+
+   if (!environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render))
+      return false;
+
+   return true;
+}
+
 /* libretro */
 void retro_set_environment(retro_environment_t cb)
 {
+
    static const struct retro_variable vars[] = {
       { "pcsx_rearmed_frameskip", "Frameskip; 0|1|2|3" },
       { "pcsx_rearmed_region", "Region; Auto|NTSC|PAL" },
@@ -320,6 +345,28 @@ void retro_set_environment(retro_environment_t cb)
    cb(RETRO_ENVIRONMENT_SET_VARIABLES, (void*)vars);
 }
 
+static const unsigned int gpu_ctl_def[] = {
+	0x00000000, 0x01000000, 0x03000000, 0x04000000,
+	0x05000800, 0x06c60260, 0x0703fc10, 0x08000027,
+};
+
+static const unsigned int gpu_data_def[] = {
+	0xe100360b, 0xe2000000, 0xe3000800, 0xe4077e7f,
+	0xe5001000, 0xe6000000,
+	0x02000000, 0x00000000, 0x01ff03ff,
+};
+
+static void fake_bios_gpu_setup(void)
+{
+	int i;
+
+	for (i = 0; i < sizeof(gpu_ctl_def) / sizeof(gpu_ctl_def[0]); i++)
+		GPU_writeStatus(gpu_ctl_def[i]);
+
+	for (i = 0; i < sizeof(gpu_data_def) / sizeof(gpu_data_def[0]); i++)
+		GPU_writeData(gpu_data_def[i]);
+}
+
 static bool fb_ready = false;
 static bool init_program_now = true;
 
@@ -329,17 +376,24 @@ static void context_reset(void)
    glsm_ctl(GLSM_CTL_STATE_CONTEXT_RESET, NULL);
    //rglgen_resolve_symbols(hw_render.get_proc_address);
 
+   memset(&pl_rearmed_cbs.gpu_peopsgl, 0, sizeof(pl_rearmed_cbs.gpu_peopsgl));
+
    if (!glsm_ctl(GLSM_CTL_STATE_SETUP, NULL))
       return;
-
    fb_ready = true;
    init_program_now = true;
 
-      if (GPU_open != NULL && GPU_close != NULL) {
-	printf("gpu_open\n");
-         GPU_close();
-         GPU_open(&gpuDisp, "PCSX", NULL);
-      }
+
+    glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+
+	        if (GPU_open != NULL && GPU_close != NULL) {
+		printf("gpu_open\n");
+	        GPU_close();
+	        GPU_open(&gpuDisp, "PCSX", NULL);
+}
+    printf(GetConfigInfos(0));
+
+    fake_bios_gpu_setup();
 
 }
 
@@ -905,7 +959,7 @@ bool retro_load_game(const struct retro_game_info *info)
       fprintf(stderr, "XRGB8888 is not supported.\n");
       return false;
    }
-
+#if 1
    glsm_ctx_params_t params = {0};
    params.context_reset         = context_reset;
    params.context_destroy       = context_destroy;
@@ -917,6 +971,15 @@ bool retro_load_game(const struct retro_game_info *info)
 
    if (!glsm_ctl(GLSM_CTL_STATE_CONTEXT_INIT, &params))
       return false;
+#else
+
+
+   if (!retro_init_hw_context())
+   {
+      fprintf(stderr, "HW Context could not be initialized, exiting...\n");
+      return false;
+   }
+#endif
 
    struct retro_input_descriptor desc[] = {
       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT,  "D-Pad Left" },
@@ -1157,7 +1220,6 @@ bool retro_load_game(const struct retro_game_info *info)
 	}
 
 	SysReset();
-
 	if (LoadCdrom() == -1) {
 		SysPrintf("could not load CD-ROM!\n");
 		return false;
@@ -1407,12 +1469,14 @@ static void update_variables(bool in_flight)
 
    if (in_flight) {
       // inform core things about possible config changes
+#if 0
       plugin_call_rearmed_cbs();
 	SysPrintf("do GPU_open\n\n");
       if (GPU_open != NULL && GPU_close != NULL) {
          GPU_close();
          GPU_open(&gpuDisp, "PCSX", NULL);
       }
+#endif
 
       dfinput_activate();
    }
@@ -1432,8 +1496,55 @@ static void update_variables(bool in_flight)
    }
 }
 
+uint32_t frame_count=0;
+int first_time = 1;
+
+void flip_cb(void)
+{
+#if 0
+if (fb_ready) {
+       glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
+       video_cb(RETRO_HW_FRAME_BUFFER_VALID, vout_width, vout_height, 0);
+       glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+}
+#endif
+}
+
+static retro_hw_get_proc_address_t *retroGetProcAddress(const char *name)
+{
+printf("name: %s\n", name); //Debug
+return hw_render.get_proc_address(name);
+}
+
 void retro_run(void)
 {
+#if 1
+    if(fb_ready && (first_time==1))
+	{
+	        //glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
+	        if (GPU_open != NULL && GPU_close != NULL) {
+		printf("gpu_open\n");
+	        GPU_close();
+	        GPU_open(&gpuDisp, "PCSX", NULL);
+		fake_bios_gpu_setup();
+		video_cb(NULL, vout_width, vout_height, 0);
+#if 1
+	int i;
+
+	for (i = 0; i < sizeof(gpu_ctl_def) / sizeof(gpu_ctl_def[0]); i++)
+		GPU_writeStatus(gpu_ctl_def[i]);
+
+	for (i = 0; i < sizeof(gpu_data_def) / sizeof(gpu_data_def[0]); i++)
+		GPU_writeData(gpu_data_def[i]);
+#endif
+
+		first_time=0;
+	        }
+
+      }
+else if (!fb_ready) return;
+#endif
+
     int i;
     //SysReset must be run while core is running,Not in menu (Locks up Retroarch)
     if(rebootemu != 0){
@@ -1471,17 +1582,145 @@ void retro_run(void)
 		}
 	}
 
-	//glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
-        glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+       glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+       //GLinitialize();
+
+	glViewport(0,0,640,480);                               
+	glScissor(0, 0, 640,480);                        // init clipping (fullscreen)
+	glEnable(GL_SCISSOR_TEST);
+	SetAspectRatio();
+
+	glMatrixMode(GL_PROJECTION);                          // init projection with psx resolution
+	glLoadIdentity();
+
+	if ((PSXDisplay.DisplayMode.x!=0) && (PSXDisplay.DisplayMode.y!=0))
+	glOrtho(0,PSXDisplay.DisplayMode.x,
+	          PSXDisplay.DisplayMode.y, 0, -1, 1);
+
+
+	if(iZBufferDepth)
+	{
+		glEnable(GL_DEPTH_TEST);  
+		glDepthFunc(GL_ALWAYS);
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+	}
+	else {
+		glDisable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
+
+#if 1
+	if(bBlendEnable)	glEnable(GL_BLEND);
+	if(bDrawDither)		glEnable(GL_DITHER);
+	if(bTexEnabled)		glEnable(GL_TEXTURE_2D);
+#else
+	if(bBlendEnable)	{glDisable(GL_BLEND);bBlendEnable=false;}
+	if(bDrawDither)		{glDisable(GL_DITHER);bDrawDither=false;}
+	if(bTexEnabled)		{glDisable(GL_TEXTURE_2D);bTexEnabled=false;}
+	
+#endif
+
+
+#if 0	
+	glLineWidth(2);
+	glPolygonMode(GL_FRONT, GL_LINE);
+	glPolygonMode(GL_BACK, GL_LINE);
+#endif
+
+
+#if 0
+        //glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
+
+#if 1
+	glViewport(0,0,640,480);                               
+	glScissor(0, 0, 640, 480);                        // init clipping (fullscreen)
+	glEnable(GL_SCISSOR_TEST);
+	SetAspectRatio();
+#endif                       
+
+#if 0
+	glMatrixMode(GL_TEXTURE);                             // init psx tex sow and tow if not "ownscale"
+	glLoadIdentity();
+	//glScalef(1.0f/255.99f,1.0f/255.99f,1.0f);
+
+#endif 
+
+#if 1
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	//glScalef(1.0f/255.99f,1.0f/255.99f,1.0f);             
+                          				
+#endif
+
+	glOrtho(0,320,
+          240, 0, -1, 1);
+
+	glEnable(GL_ALPHA_TEST);
+
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);                 // first buffer clear
+
+	if(iZBufferDepth)
+	{
+		glEnable(GL_DEPTH_TEST);  
+		glDepthFunc(GL_ALWAYS);
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+	}
+	else {
+		glDisable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
+
+	if (bUseLines)
+//	if (true)
+	{
+	glPolygonMode(GL_FRONT, GL_LINE);
+	glPolygonMode(GL_BACK, GL_LINE); 
+	}
+	else
+	{
+	glPolygonMode(GL_FRONT, GL_FILL);
+	glPolygonMode(GL_BACK, GL_FILL);
+	}
+#if 0
+	if(bBlendEnable)	glEnable(GL_BLEND);
+	if(bDrawDither)		glEnable(GL_DITHER);
+	if(bTexEnabled)		glEnable(GL_TEXTURE_2D);
+#else
+	if(bBlendEnable)	{glDisable(GL_BLEND);bBlendEnable=false;}
+	if(bDrawDither)		{glDisable(GL_DITHER);bDrawDither=false;}
+	if(bTexEnabled)		{glDisable(GL_TEXTURE_2D);bTexEnabled=false;}
+	
+#endif
+
+#if 1		
+	glPixelTransferi(GL_RED_SCALE, 1);                    // to be sure:
+	glPixelTransferi(GL_RED_BIAS, 0);                     // init more OGL vals
+	glPixelTransferi(GL_GREEN_SCALE, 1);
+	glPixelTransferi(GL_GREEN_BIAS, 0);
+	glPixelTransferi(GL_BLUE_SCALE, 1);
+	glPixelTransferi(GL_BLUE_BIAS, 0);
+	glPixelTransferi(GL_ALPHA_SCALE, 1);
+	glPixelTransferi(GL_ALPHA_BIAS, 0);  
+#endif
+
+	//DisplaySet = false;
+	//bDisplayNotSet = true;
+#endif
 
 	stop = 0;
 	psxCpu->Execute();
+	//glFlush();
+	//glFinish();
 
-	//video_cb((vout_fb_dirty || !vout_can_dupe || !duping_enable) ? vout_buf_ptr : NULL,
-	//	vout_width, vout_height, vout_width * 2);
-   glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
+        glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
 	video_cb(RETRO_HW_FRAME_BUFFER_VALID, vout_width, vout_height, 0);
 	vout_fb_dirty = 0;
+
+	glPolygonMode(GL_FRONT, GL_FILL);
+	glPolygonMode(GL_BACK, GL_FILL);
+
 }
 
 static bool try_use_bios(const char *path)
@@ -1629,6 +1868,8 @@ void retro_init(void)
 	cycle_multiplier = 200;
 #endif
 	pl_rearmed_cbs.gpu_peops.iUseDither = 1;
+        pl_rearmed_cbs.gpu_peopsgl.flip_cb = flip_cb;
+	pl_rearmed_cbs.gpu_peopsgl.retroGetProcAddress = retroGetProcAddress;
 	spu_config.iUseFixedUpdates = 1;
 
 	McdDisable[0] = 0;

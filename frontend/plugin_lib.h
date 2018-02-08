@@ -85,10 +85,13 @@ struct rearmed_cbs {
 		int   lineskip;
 	} gpu_unai;
 	struct {
+		void  (*flip_cb)(void);
+		struct retro_hw_get_proc_address_t  (*retroGetProcAddress)(const char *name);
 		int   dwActFixes;
 		int   bDrawDither, iFilterType, iFrameTexType;
 		int   iUseMask, bOpaquePass, bAdvancedBlend, bUseFastMdec;
 		int   iVRamSize, iTexGarbageCollection;
+		unsigned int fbo;
 	} gpu_peopsgl;
 	// misc
 	int gpu_caps;

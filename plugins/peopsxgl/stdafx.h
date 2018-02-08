@@ -34,8 +34,6 @@
 #pragma warning (disable:4244)
 #pragma warning (disable:4761)
 
-#include <GL/gl.h>
-
 #elif defined(_MACGL)
 
 #include <stdio.h>
@@ -62,8 +60,14 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <GL/gl.h>
-#include <GL/glx.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+//#include <GL/gl.h>
+//#include <GL/glx.h>
+//#include "../../glsym/glsym.h"
+//#include "../../glsym/glsym_gl.h"
+#include "../../glsm/glsmsym.h"
+
 #include <math.h> 
 #include <X11/cursorfont.h> 
 

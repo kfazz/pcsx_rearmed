@@ -216,28 +216,28 @@ void ReadConfig(void)                                  // read config (linux fil
  iResY=480;
  iColDepth=16;
  bChangeRes=FALSE;
- bWindowMode=TRUE;
+ bWindowMode=FALSE;
  iUseScanLines=0;
- bFullScreen=FALSE;
+ bFullScreen=TRUE;
  bFullVRam=FALSE;
  iFilterType=0;
  bAdvancedBlend=FALSE;
  bDrawDither=FALSE;
- bUseLines=FALSE;
+ bUseLines=FALSE; //Wireframe mode
  bUseFrameLimit=TRUE;
  bUseFrameSkip=FALSE;
  iFrameLimit=2;
  fFrameRate=200.0f;
  iOffscreenDrawing=2;
- bOpaquePass=TRUE;
+ bOpaquePass=FALSE;
  bUseAntiAlias=FALSE;
- iTexQuality=0;
+ iTexQuality=4;
  iUseMask=0;
  iZBufferDepth=0;
  bUseFastMdec=TRUE;
  dwCfgFixes=0;
  bUseFixes=FALSE;
- iFrameTexType=1;
+ iFrameTexType=0;
  iFrameReadType=0;
  bUse15bitMdec=FALSE;
  iShowFPS=0;
@@ -245,13 +245,13 @@ void ReadConfig(void)                                  // read config (linux fil
  bKeepRatio=FALSE;
  bForceRatio43=FALSE;
  iScanBlend=0;
- iVRamSize=0;
+ iVRamSize=64;
  iTexGarbageCollection=1;
  iBlurBuffer=0;
  iHiResTextures=0;
  iForceVSync=-1;
 
- ReadConfigFile();                                     // read file
+ //ReadConfigFile();                                     // read file
 
  if(!iColDepth)  iColDepth=32;                         // adjust color info
  if(iUseMask)    iZBufferDepth=16;                     // set zbuffer depth 

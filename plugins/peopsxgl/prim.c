@@ -25,7 +25,6 @@
 #include "draw.h"
 #include "soft.h"
 #include "texture.h"
-#include "pgxp_gpu.h"
 
 ////////////////////////////////////////////////////////////////////////                                          
 // defines
@@ -150,25 +149,18 @@ unsigned short BGR24to16 (uint32_t BGR)
 static __inline void PRIMdrawTexturedQuad(OGLVertex* vertex1, OGLVertex* vertex2, 
                                    OGLVertex* vertex3, OGLVertex* vertex4) 
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugTriQuad(vertex1, vertex2, vertex4, vertex3, COLOUR_NONE, 1))
-		return;
-	}
-		
-
- glBegin(GL_TRIANGLE_STRIP);
+  glBegin(GL_TRIANGLE_STRIP);
   glTexCoord2fv(&vertex1->sow);
-  PGXP_glVertexfv(&vertex1->x);
+  glVertex3fv(&vertex1->x);
   
   glTexCoord2fv(&vertex2->sow);
-  PGXP_glVertexfv(&vertex2->x);
+  glVertex3fv(&vertex2->x);
   
   glTexCoord2fv(&vertex4->sow);
-  PGXP_glVertexfv(&vertex4->x);
+  glVertex3fv(&vertex4->x);
   
   glTexCoord2fv(&vertex3->sow);
-  PGXP_glVertexfv(&vertex3->x);
+  glVertex3fv(&vertex3->x);
  glEnd();
 }
 
@@ -177,21 +169,15 @@ static __inline void PRIMdrawTexturedQuad(OGLVertex* vertex1, OGLVertex* vertex2
 static __inline void PRIMdrawTexturedTri(OGLVertex* vertex1, OGLVertex* vertex2, 
                                   OGLVertex* vertex3) 
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugTri(vertex1, vertex2, vertex3, COLOUR_NONE, 1))
-		return;
-	}
-
- glBegin(GL_TRIANGLES);
+  glBegin(GL_TRIANGLES);
   glTexCoord2fv(&vertex1->sow);
-  PGXP_glVertexfv(&vertex1->x);
+  glVertex3fv(&vertex1->x);
 
   glTexCoord2fv(&vertex2->sow);
-  PGXP_glVertexfv(&vertex2->x);
+  glVertex3fv(&vertex2->x);
 
   glTexCoord2fv(&vertex3->sow);
-  PGXP_glVertexfv(&vertex3->x);
+  glVertex3fv(&vertex3->x);
  glEnd();
 }
 
@@ -200,25 +186,19 @@ static __inline void PRIMdrawTexturedTri(OGLVertex* vertex1, OGLVertex* vertex2,
 static __inline void PRIMdrawTexGouraudTriColor(OGLVertex* vertex1, OGLVertex* vertex2, 
                                          OGLVertex* vertex3) 
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugTri(vertex1, vertex2, vertex3, COLOUR_SMOOTH, 1))
-		return;
-	}
-
- glBegin(GL_TRIANGLES);
+  glBegin(GL_TRIANGLES);
 
   SETPCOL(vertex1); 
   glTexCoord2fv(&vertex1->sow);
-  PGXP_glVertexfv(&vertex1->x);
+  glVertex3fv(&vertex1->x);
 
   SETPCOL(vertex2); 
   glTexCoord2fv(&vertex2->sow);
-  PGXP_glVertexfv(&vertex2->x);
+  glVertex3fv(&vertex2->x);
 
   SETPCOL(vertex3); 
   glTexCoord2fv(&vertex3->sow);
-  PGXP_glVertexfv(&vertex3->x);
+  glVertex3fv(&vertex3->x);
  glEnd();
 }
 
@@ -227,28 +207,22 @@ static __inline void PRIMdrawTexGouraudTriColor(OGLVertex* vertex1, OGLVertex* v
 static __inline void PRIMdrawTexGouraudTriColorQuad(OGLVertex* vertex1, OGLVertex* vertex2, 
                                              OGLVertex* vertex3, OGLVertex* vertex4) 
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugTriQuad(vertex1, vertex2, vertex4, vertex3, COLOUR_SMOOTH, 1))
-		return;
-	}
-
- glBegin(GL_TRIANGLE_STRIP);
+  glBegin(GL_TRIANGLE_STRIP);
   SETPCOL(vertex1); 
   glTexCoord2fv(&vertex1->sow);
-  PGXP_glVertexfv(&vertex1->x);
+  glVertex3fv(&vertex1->x);
 
   SETPCOL(vertex2); 
   glTexCoord2fv(&vertex2->sow);
-  PGXP_glVertexfv(&vertex2->x);
+  glVertex3fv(&vertex2->x);
 
   SETPCOL(vertex4); 
   glTexCoord2fv(&vertex4->sow);
-  PGXP_glVertexfv(&vertex4->x);
+  glVertex3fv(&vertex4->x);
 
   SETPCOL(vertex3); 
   glTexCoord2fv(&vertex3->sow);
-  PGXP_glVertexfv(&vertex3->x);
+  glVertex3fv(&vertex3->x);
  glEnd();
 }
 
@@ -256,16 +230,10 @@ static __inline void PRIMdrawTexGouraudTriColorQuad(OGLVertex* vertex1, OGLVerte
 
 static __inline void PRIMdrawTri(OGLVertex* vertex1, OGLVertex* vertex2, OGLVertex* vertex3) 
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugTri(vertex1, vertex2, vertex3, COLOUR_NONE, 0))
-		return;
-	}
-
- glBegin(GL_TRIANGLES);
-  PGXP_glVertexfv(&vertex1->x);
-  PGXP_glVertexfv(&vertex2->x);
-  PGXP_glVertexfv(&vertex3->x);
+  glBegin(GL_TRIANGLES);
+  glVertex3fv(&vertex1->x);
+  glVertex3fv(&vertex2->x);
+  glVertex3fv(&vertex3->x);
  glEnd();
 }
 
@@ -274,17 +242,11 @@ static __inline void PRIMdrawTri(OGLVertex* vertex1, OGLVertex* vertex2, OGLVert
 static __inline void PRIMdrawTri2(OGLVertex* vertex1, OGLVertex* vertex2, 
                            OGLVertex* vertex3, OGLVertex* vertex4) 
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugTriQuad(vertex1, vertex3, vertex2, vertex4, 0, 0))
-		return;
-	}
-
- glBegin(GL_TRIANGLE_STRIP);                           
-  PGXP_glVertexfv(&vertex1->x);
-  PGXP_glVertexfv(&vertex3->x);
-  PGXP_glVertexfv(&vertex2->x);
-  PGXP_glVertexfv(&vertex4->x);
+  glBegin(GL_TRIANGLE_STRIP);                           
+  glVertex3fv(&vertex1->x);
+  glVertex3fv(&vertex3->x);
+  glVertex3fv(&vertex2->x);
+  glVertex3fv(&vertex4->x);
  glEnd();
 }
 
@@ -293,21 +255,15 @@ static __inline void PRIMdrawTri2(OGLVertex* vertex1, OGLVertex* vertex2,
 static __inline void PRIMdrawGouraudTriColor(OGLVertex* vertex1, OGLVertex* vertex2, 
                                       OGLVertex* vertex3) 
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugTri(vertex1, vertex2, vertex3, COLOUR_SMOOTH, 0))
-		return;
-	}
-
- glBegin(GL_TRIANGLES);                           
+  glBegin(GL_TRIANGLES);                           
   SETPCOL(vertex1); 
-  PGXP_glVertexfv(&vertex1->x);
+  glVertex3fv(&vertex1->x);
        
   SETPCOL(vertex2); 
-  PGXP_glVertexfv(&vertex2->x);
+  glVertex3fv(&vertex2->x);
 
   SETPCOL(vertex3); 
-  PGXP_glVertexfv(&vertex3->x);
+  glVertex3fv(&vertex3->x);
  glEnd();
 }
 
@@ -316,24 +272,18 @@ static __inline void PRIMdrawGouraudTriColor(OGLVertex* vertex1, OGLVertex* vert
 static __inline void PRIMdrawGouraudTri2Color(OGLVertex* vertex1, OGLVertex* vertex2, 
                                        OGLVertex* vertex3, OGLVertex* vertex4) 
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugTriQuad(vertex1, vertex3, vertex2, vertex4, COLOUR_SMOOTH, 0))
-		return;
-	}
-
- glBegin(GL_TRIANGLE_STRIP);                           
+  glBegin(GL_TRIANGLE_STRIP);                           
   SETPCOL(vertex1); 
-  PGXP_glVertexfv(&vertex1->x);
+  glVertex3fv(&vertex1->x);
        
   SETPCOL(vertex3); 
-  PGXP_glVertexfv(&vertex3->x);
+  glVertex3fv(&vertex3->x);
 
   SETPCOL(vertex2); 
-  PGXP_glVertexfv(&vertex2->x);
+  glVertex3fv(&vertex2->x);
 
   SETPCOL(vertex4); 
-  PGXP_glVertexfv(&vertex4->x);
+  glVertex3fv(&vertex4->x);
  glEnd();
 }
 
@@ -341,20 +291,14 @@ static __inline void PRIMdrawGouraudTri2Color(OGLVertex* vertex1, OGLVertex* ver
 
 static __inline void PRIMdrawFlatLine(OGLVertex* vertex1, OGLVertex* vertex2,OGLVertex* vertex3, OGLVertex* vertex4)
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugQuad(vertex1, vertex2, vertex3, vertex4, COLOUR_FLAT, 0))
-		return;
-	}
-
- glBegin(GL_QUADS);
+  glBegin(GL_QUADS);
 
   SETPCOL(vertex1); 
 
-  PGXP_glVertexfv(&vertex1->x);
-  PGXP_glVertexfv(&vertex2->x);
-  PGXP_glVertexfv(&vertex3->x);
-  PGXP_glVertexfv(&vertex4->x);
+  glVertex3fv(&vertex1->x);
+  glVertex3fv(&vertex2->x);
+  glVertex3fv(&vertex3->x);
+  glVertex3fv(&vertex4->x);
  glEnd();
 }
 
@@ -362,25 +306,19 @@ static __inline void PRIMdrawFlatLine(OGLVertex* vertex1, OGLVertex* vertex2,OGL
      
 static __inline void PRIMdrawGouraudLine(OGLVertex* vertex1, OGLVertex* vertex2,OGLVertex* vertex3, OGLVertex* vertex4)
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugQuad(vertex1, vertex2, vertex3, vertex4, COLOUR_SMOOTH, 0))
-		return;
-	}
-
- glBegin(GL_QUADS);
+  glBegin(GL_QUADS);
 
   SETPCOL(vertex1); 
-  PGXP_glVertexfv(&vertex1->x);
+  glVertex3fv(&vertex1->x);
 
   SETPCOL(vertex2); 
-  PGXP_glVertexfv(&vertex2->x);
+  glVertex3fv(&vertex2->x);
 
   SETPCOL(vertex3); 
-  PGXP_glVertexfv(&vertex3->x);
+  glVertex3fv(&vertex3->x);
 
   SETPCOL(vertex4); 
-  PGXP_glVertexfv(&vertex4->x);
+  glVertex3fv(&vertex4->x);
  glEnd();
 }
 
@@ -389,17 +327,11 @@ static __inline void PRIMdrawGouraudLine(OGLVertex* vertex1, OGLVertex* vertex2,
 static __inline void PRIMdrawQuad(OGLVertex* vertex1, OGLVertex* vertex2, 
                            OGLVertex* vertex3, OGLVertex* vertex4) 
 {
-	if (PGXP_vDebug)
-	{
-		if(PGXP_DrawDebugQuad(vertex1, vertex2, vertex3, vertex4, COLOUR_NONE, 0))
-		return;
-	}
-
- glBegin(GL_QUADS);
-  PGXP_glVertexfv(&vertex1->x);
-  PGXP_glVertexfv(&vertex2->x);
-  PGXP_glVertexfv(&vertex3->x);
-  PGXP_glVertexfv(&vertex4->x);
+  glBegin(GL_QUADS);
+  glVertex3fv(&vertex1->x);
+  glVertex3fv(&vertex2->x);
+  glVertex3fv(&vertex3->x);
+  glVertex3fv(&vertex4->x);
  glEnd();
 }
 
@@ -2374,14 +2306,12 @@ void primTileS(unsigned char * baseAddr)
    offsetPSX4();
    if(bDrawOffscreen4())
     {
-#if 0
      if(!(iTileCheat && sprtH==32 && gpuData[0]==0x60ffffff)) // special cheat for certain ZiNc games
       {
        InvalidateTextureAreaEx();   
        FillSoftwareAreaTrans(lx0,ly0,lx2,ly2,
                              BGR24to16(gpuData[0]));  
       }
-#endif
     }
   }
 
@@ -2554,13 +2484,6 @@ void DrawMultiBlur(void)
 
  fx=(float)PSXDisplay.DisplayMode.x/(float)(iResX); 
  fy=(float)PSXDisplay.DisplayMode.y/(float)(iResY);
-
-
- for (unsigned int i = 0; i < 4; ++i)
- {
-	 vertex[i].PGXP_flag = 999;
-	 vertex[i].w = 1.f;
- }
 
  vertex[0].x+=fx;vertex[1].x+=fx;
  vertex[2].x+=fx;vertex[3].x+=fx;

@@ -29,10 +29,6 @@
 
 // prototypes
 
-#ifdef _WINDOWS
-BOOL bSetupPixelFormat(HDC hDC);
-#endif
-
 int  GLinitialize();
 void GLcleanup();
 BOOL offset2(unsigned int* addr);

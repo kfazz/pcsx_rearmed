@@ -15,9 +15,18 @@
  *   additional informations.                                              *
  *                                                                         *
  ***************************************************************************/
-
 #ifndef __EXTERNALS_H
 #define __EXTERNALS_H
+
+/* logging */
+#if 1
+#define GPU_LOG printf // SysPrintf
+#define FUNC GPU_LOG("%s\n", __PRETTY_FUNCTION__)
+#else
+#define GPU_LOG(...)
+#endif
+
+#include "../../frontend/plugin_lib.h"
 
 #if defined (_MACGL)
 // if you use it, you must include it.
@@ -97,9 +106,15 @@
 
 #define FALSE 0
 #define TRUE  1
-#define BOOL unsigned short
+
+#ifndef BOOL
+//#define BOOL uint32_t // unsigned short
+typedef unsigned short BOOL;
+#endif
+
 #ifndef bool
-#define bool unsigned short
+//#define bool uint32_t //unsigned short
+typedef unsigned short bool;
 #endif
 
 #define LOWORD(l)           ((unsigned short)(l))
@@ -414,6 +429,7 @@ extern BOOL           bNeedInterlaceUpdate;
 extern BOOL           bNeedWriteUpload;
 extern BOOL           bSkipNextFrame;
 extern uint32_t       vBlank;
+extern GLuint         *fbo;
 
 extern int bFullScreen;
 
@@ -455,4 +471,4 @@ extern int           GlobalTextIL;
 extern int           iTileCheat;
 
 #endif
-#endif
+#endif /*__EXTERNALS_H*/
