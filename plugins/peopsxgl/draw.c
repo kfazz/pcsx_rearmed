@@ -29,8 +29,12 @@
 
 #include "gte_accuracy.h"
 
-static retro_hw_get_proc_address_t  (*retroGetProcAddress)(const char *name);
-
+#if defined(_MACGL)
+// if you use it, you must include it
+#include <OpenGL/gl.h>
+#include <OpenGL/glext.h>
+#include "drawgl.h"
+#endif
 ////////////////////////////////////////////////////////////////////////////////////
 // defines
 
@@ -79,6 +83,11 @@ static retro_hw_get_proc_address_t  (*retroGetProcAddress)(const char *name);
 
 ////////////////////////////////////////////////////////////////////////////////////
 // draw globals; most will be initialized again later (by config or checks) 
+
+#ifdef _WINDOWS
+HDC            dcGlobal = NULL;
+HWND           hWWindow;
+#endif
 
 BOOL           bIsFirstFrame = TRUE;
 
@@ -212,30 +221,40 @@ void GetExtInfos(void)
    bGLExt=TRUE;
   }
 
-/*
  if(iUseExts &&                                        // extension support wanted?
     (strstr((char *)glGetString(GL_EXTENSIONS),
      "GL_EXT_texture_edge_clamp") ||
      strstr((char *)glGetString(GL_EXTENSIONS),        // -> check clamp support, if yes: use it
      "GL_SGIS_texture_edge_clamp")))
-*/
       iClampType=GL_TO_EDGE_CLAMP;
-// else iClampType=GL_CLAMP;
+ else iClampType=GL_CLAMP;
 
+#if !defined (_MACGL) // OSX > 10.4.3 defines this
  glColorTableEXTEx=(PFNGLCOLORTABLEEXT)NULL;           // init ogl palette func pointer
+#endif
 
+#ifndef __sun
  if(iGPUHeight!=1024 &&                                // no pal textures in ZN mode (height=1024)! 
     strstr((char *)glGetString(GL_EXTENSIONS),         // otherwise: check ogl support
     "GL_EXT_paletted_texture"))
   {
    iUsePalTextures=1;                                  // -> wow, supported, get func pointer
 
-   glColorTableEXTEx=(PFNGLCOLORTABLEEXT)(void*)retroGetProcAddress("glColorTableEXT");
+#ifdef _WINDOWS
+   glColorTableEXTEx=(PFNGLCOLORTABLEEXT)wglGetProcAddress("glColorTableEXT");
+#elif defined (_MACGL)
+    // no prob, done already in OSX > 10.4.3
+#else
+   glColorTableEXTEx=(PFNGLCOLORTABLEEXT)glXGetProcAddress("glColorTableEXT");
+#endif
 
    if(glColorTableEXTEx==NULL) iUsePalTextures=0;      // -> ha, cheater... no func, no support
 
   }
  else iUsePalTextures=0;
+#else
+ iUsePalTextures=0;
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -268,7 +287,13 @@ void SetExtGLFuncs(void)
     strstr((char *)glGetString(GL_EXTENSIONS),         // and blend_subtract available?
     "GL_EXT_blend_subtract"))
      {                                                 // -> get ogl blend function pointer
-	glBlendEquationEXTEx=(PFNGLBLENDEQU)(void*)retroGetProcAddress("glBlendEquationEXT");
+#ifdef _WINDOWS
+      glBlendEquationEXTEx=(PFNGLBLENDEQU)wglGetProcAddress("glBlendEquationEXT");
+#elif defined(_MACGL)
+    // no prob, OSX > 10.4.3 has this
+#else
+      glBlendEquationEXTEx=(PFNGLBLENDEQU)glXGetProcAddress("glBlendEquationEXT");
+#endif
      }
  else                                                  // no subtract blending?
   {
@@ -538,41 +563,55 @@ void CreateScanLines(void)
 // Initialize OGL
 ////////////////////////////////////////////////////////////////////////
 
+#ifdef _WINDOWS    
+HGLRC GLCONTEXT=NULL;
+#endif
+
 int GLinitialize() 
 {
- //FUNC;
+#ifdef _WINDOWS
+ HGLRC objectRC;
+ // init
+ dcGlobal = GetDC(hWWindow);                           // FIRST: dc/rc stuff
+ objectRC = wglCreateContext(dcGlobal); 
+ GLCONTEXT=objectRC;
+ wglMakeCurrent(dcGlobal, objectRC);
+ // CheckWGLExtensions(dcGlobal);
+ if(bWindowMode) ReleaseDC(hWWindow,dcGlobal);         // win mode: release dc again
+#endif
+#if defined (_MACGL)
+ BringContextForward();
+#endif
  glViewport(rRatioRect.left,                           // init viewport by ratio rect
             iResY-(rRatioRect.top+rRatioRect.bottom),
             rRatioRect.right, 
-            rRatioRect.bottom);glError();         
+            rRatioRect.bottom);         
                                                       
- glScissor(0, 0, iResX, iResY);glError();                        // init clipping (fullscreen)
- glEnable(GL_SCISSOR_TEST);glError();                       
+ glScissor(0, 0, iResX, iResY);                        // init clipping (fullscreen)
+ glEnable(GL_SCISSOR_TEST);                       
 
 #ifndef OWNSCALE
- glMatrixMode(GL_TEXTURE);glError();                             // init psx tex sow and tow if not "ownscale"
- glLoadIdentity();glError();
- glScalef(1.0f/255.99f,1.0f/255.99f,1.0f);glError();             // geforce precision hack
+ glMatrixMode(GL_TEXTURE);                             // init psx tex sow and tow if not "ownscale"
+ glLoadIdentity();
+ glScalef(1.0f/255.99f,1.0f/255.99f,1.0f);             // geforce precision hack
 #endif 
 
-glMatrixMode(GL_PROJECTION);glError();                          // init projection with psx resolution
-glLoadIdentity();glError();
-
-if ((PSXDisplay.DisplayMode.x!=0) && (PSXDisplay.DisplayMode.y!=0))
-glOrtho(0,PSXDisplay.DisplayMode.x,
-          PSXDisplay.DisplayMode.y, 0, -1, 1);glError();
+ glMatrixMode(GL_PROJECTION);                          // init projection with psx resolution
+ glLoadIdentity();
+ glOrtho(0,PSXDisplay.DisplayMode.x,
+         PSXDisplay.DisplayMode.y, 0, -1, 1);
 
  if(iZBufferDepth)                                     // zbuffer?
   {
-   uiBufferBits=GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT;glError();
-   glEnable(GL_DEPTH_TEST);glError();    
-   glDepthFunc(GL_ALWAYS);glError();
+   uiBufferBits=GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT;
+   glEnable(GL_DEPTH_TEST);    
+   glDepthFunc(GL_ALWAYS);
    iDepthFunc=1;
   }
  else                                                  // no zbuffer?
   {
-   uiBufferBits=GL_COLOR_BUFFER_BIT;glError();
-   glDisable(GL_DEPTH_TEST);glError();
+   uiBufferBits=GL_COLOR_BUFFER_BIT;
+   glDisable(GL_DEPTH_TEST);
   }
 
  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);                 // first buffer clear
@@ -580,36 +619,36 @@ glOrtho(0,PSXDisplay.DisplayMode.x,
 
  if(bUseLines)                                         // funny lines 
   {
-   glPolygonMode(GL_FRONT, GL_LINE);glError(); 
-   glPolygonMode(GL_BACK, GL_LINE);glError(); 
+   glPolygonMode(GL_FRONT, GL_LINE); 
+   glPolygonMode(GL_BACK, GL_LINE); 
   }
  else                                                  // or the real filled thing
   {
-   glPolygonMode(GL_FRONT, GL_FILL);glError();
-   glPolygonMode(GL_BACK, GL_FILL);glError();
+   glPolygonMode(GL_FRONT, GL_FILL);
+   glPolygonMode(GL_BACK, GL_FILL);
   }
 
-// MakeDisplayLists();                                   // lists for menu/opaque
+ MakeDisplayLists();                                   // lists for menu/opaque
  GetExtInfos();                                        // get ext infos
  SetExtGLFuncs();                                      // init all kind of stuff (tex function pointers)
  
- glEnable(GL_ALPHA_TEST);glError();                              // wanna alpha test
+ glEnable(GL_ALPHA_TEST);                              // wanna alpha test
 
  if(!bUseAntiAlias)                                    // no anti-alias (default)
   {
-   glDisable(GL_LINE_SMOOTH);glError();
-   glDisable(GL_POLYGON_SMOOTH);glError();
-   glDisable(GL_POINT_SMOOTH);glError();
+   glDisable(GL_LINE_SMOOTH);
+   glDisable(GL_POLYGON_SMOOTH);
+   glDisable(GL_POINT_SMOOTH);
   }
  else                                                  // wanna try it? glitches galore...
   {                    
-   glHint(GL_PERSPECTIVE_CORRECTION_HINT,GL_NICEST);glError();
-   glEnable(GL_LINE_SMOOTH);glError();
-   glEnable(GL_POLYGON_SMOOTH);glError();
-   glEnable(GL_POINT_SMOOTH);glError();
-   glHint(GL_LINE_SMOOTH_HINT,GL_NICEST);glError();
-   glHint(GL_POINT_SMOOTH_HINT,GL_NICEST);glError();
-   glHint(GL_POLYGON_SMOOTH_HINT,GL_NICEST);glError();
+   glHint(GL_PERSPECTIVE_CORRECTION_HINT,GL_NICEST);
+   glEnable(GL_LINE_SMOOTH);
+   glEnable(GL_POLYGON_SMOOTH);
+   glEnable(GL_POINT_SMOOTH);
+   glHint(GL_LINE_SMOOTH_HINT,GL_NICEST);
+   glHint(GL_POINT_SMOOTH_HINT,GL_NICEST);
+   glHint(GL_POLYGON_SMOOTH_HINT,GL_NICEST);
   }
 
  ubGloAlpha=127;                                       // init some drawing vars
@@ -620,45 +659,52 @@ glOrtho(0,PSXDisplay.DisplayMode.x,
  bTexEnabled=FALSE;
  bUsingTWin=FALSE;
       
- if(bDrawDither) { glEnable(GL_DITHER);glError();  }               // dither mode
- else            { glDisable(GL_DITHER);glError(); }
+ if(bDrawDither)  glEnable(GL_DITHER);                 // dither mode
+ else             glDisable(GL_DITHER); 
 
- glDisable(GL_FOG);glError();                                    // turn all (currently) unused modes off
- glDisable(GL_LIGHTING);glError();  
- glDisable(GL_LOGIC_OP);glError();
- glDisable(GL_STENCIL_TEST);glError();  
- glDisable(GL_TEXTURE_1D);glError();
- glDisable(GL_TEXTURE_2D);glError();
- glDisable(GL_CULL_FACE);glError();
+ glDisable(GL_FOG);                                    // turn all (currently) unused modes off
+ glDisable(GL_LIGHTING);  
+ glDisable(GL_LOGIC_OP);
+ glDisable(GL_STENCIL_TEST);  
+ glDisable(GL_TEXTURE_1D);
+ glDisable(GL_TEXTURE_2D);
+ glDisable(GL_CULL_FACE);
 
- glPixelTransferi(GL_RED_SCALE, 1);glError();                    // to be sure:
- glPixelTransferi(GL_RED_BIAS, 0);glError();                     // init more OGL vals
- glPixelTransferi(GL_GREEN_SCALE, 1);glError();
- glPixelTransferi(GL_GREEN_BIAS, 0);glError();
- glPixelTransferi(GL_BLUE_SCALE, 1);glError();
- glPixelTransferi(GL_BLUE_BIAS, 0);glError();
- glPixelTransferi(GL_ALPHA_SCALE, 1);glError();
- glPixelTransferi(GL_ALPHA_BIAS, 0);glError();                                                  
+ glPixelTransferi(GL_RED_SCALE, 1);                    // to be sure:
+ glPixelTransferi(GL_RED_BIAS, 0);                     // init more OGL vals
+ glPixelTransferi(GL_GREEN_SCALE, 1);
+ glPixelTransferi(GL_GREEN_BIAS, 0);
+ glPixelTransferi(GL_BLUE_SCALE, 1);
+ glPixelTransferi(GL_BLUE_BIAS, 0);
+ glPixelTransferi(GL_ALPHA_SCALE, 1);
+ glPixelTransferi(GL_ALPHA_BIAS, 0);                                                  
 
- glFlush();glError();                                            // we are done...
- glFinish();glError();                           
+#ifdef _WINDOWS
+                                                       // detect Windows hw/sw mode (just for info)
+ if(!strcmp("Microsoft Corporation",(LPTSTR)glGetString(GL_VENDOR)) &&
+    !strcmp("GDI Generic",          (LPTSTR)glGetString(GL_RENDERER)))
+      bGLSoft=TRUE;
+ else bGLSoft=FALSE;
+#endif
 
- CreateScanLines();                                   // setup scanline stuff (if wanted)
+ glFlush();                                            // we are done...
+ glFinish();                           
+
+ CreateScanLines();                                    // setup scanline stuff (if wanted)
 
  CheckTextureMemory();                                 // check available tex memory
 
  if(bKeepRatio) SetAspectRatio();                      // set ratio
 
-#if 0
  if(iShowFPS)                                          // user wants FPS display on startup?
   {
    ulKeybits|=KEY_SHOWFPS;                             // -> ok, turn display on
    szDispBuf[0]=0;
    BuildDispMenu(0);
   }
-#endif
  
  bIsFirstFrame = FALSE;                                // we have survived the first frame :)
+
  return 0;
 }
 
@@ -668,7 +714,7 @@ glOrtho(0,PSXDisplay.DisplayMode.x,
 
 void GLcleanup() 
 {                                                     
-// KillDisplayLists();                                   // bye display lists
+ KillDisplayLists();                                   // bye display lists
 
  if(iUseScanLines)                                     // scanlines used?
   {
@@ -678,7 +724,7 @@ void GLcleanup()
       glDeleteTextures(1, &gTexScanName);              // -> delete it
      gTexScanName=0;
     }
-   else glDeleteLists(uiScanLine,1);glError();                   // otherwise del scanline display list
+   else glDeleteLists(uiScanLine,1);                   // otherwise del scanline display list
   }
 
  CleanupTextureStore();                                // bye textures
@@ -897,7 +943,7 @@ void offsetline(void)
 #define VERTEX_OFFX 0.2f
 #define VERTEX_OFFY 0.2f
 
-BOOL offsetline(unsigned int* addr)
+BOOL offsetline(void)           
 {
  short x0,x1,y0,y1,dx,dy;float px,py;
 
@@ -994,7 +1040,7 @@ BOOL offsetline(unsigned int* addr)
 
 ///////////////////////////////////////////////////////// 
 
-BOOL offset2(unsigned int* addr)
+BOOL offset2(void)
 {
  if(bDisplayNotSet)
   SetOGLDisplaySettings(1);
@@ -1030,7 +1076,7 @@ BOOL offset2(unsigned int* addr)
 
 ///////////////////////////////////////////////////////// 
 
-BOOL offset3(unsigned int* addr)
+BOOL offset3(void)
 {
  if(bDisplayNotSet)
   SetOGLDisplaySettings(1);
@@ -1075,7 +1121,7 @@ BOOL offset3(unsigned int* addr)
 
 ///////////////////////////////////////////////////////// 
 
-BOOL offset4(unsigned int* addr)
+BOOL offset4(void)
 {
  if(bDisplayNotSet)
   SetOGLDisplaySettings(1);
@@ -1114,7 +1160,7 @@ BOOL offset4(unsigned int* addr)
 	vertex[3].x=lx3;
 	vertex[3].y=ly3;
  }
-
+ 
  vertex[0].x+=PSXDisplay.CumulOffset.x;
  vertex[1].x+=PSXDisplay.CumulOffset.x;
  vertex[2].x+=PSXDisplay.CumulOffset.x;
@@ -1129,7 +1175,7 @@ BOOL offset4(unsigned int* addr)
 
 ///////////////////////////////////////////////////////// 
 
-void offsetST(unsigned int* addr)
+void offsetST(void)
 {
  if(bDisplayNotSet)
   SetOGLDisplaySettings(1);
@@ -1159,7 +1205,6 @@ void offsetST(unsigned int* addr)
  vertex[1].y=ly1+PSXDisplay.CumulOffset.y;
  vertex[2].y=ly2+PSXDisplay.CumulOffset.y;
  vertex[3].y=ly3+PSXDisplay.CumulOffset.y;
-
 }
 
 ///////////////////////////////////////////////////////// 
@@ -1227,7 +1272,7 @@ void offsetScreenUpload(int Position)
  
 ///////////////////////////////////////////////////////// 
 
-void offsetBlk(unsigned int* addr)
+void offsetBlk(void)
 {
  if(bDisplayNotSet)
   SetOGLDisplaySettings(1);

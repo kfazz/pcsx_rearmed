@@ -29,14 +29,18 @@
 
 // prototypes
 
+#ifdef _WINDOWS
+BOOL bSetupPixelFormat(HDC hDC);
+#endif
+
 int  GLinitialize();
 void GLcleanup();
-BOOL offset2(unsigned int* addr);
-BOOL offset3(unsigned int* addr);
-BOOL offset4(unsigned int* addr);
-BOOL offsetline(unsigned int* addr);
-void offsetST(unsigned int* addr);
-void offsetBlk(unsigned int* addr);
+BOOL offset2(void);
+BOOL offset3(void);
+BOOL offset4(void);
+BOOL offsetline(void);
+void offsetST(void);
+void offsetBlk(void);
 void offsetScreenUpload(int Position);
 void assignTexture3(void);
 void assignTexture4(void);

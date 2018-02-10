@@ -17,7 +17,7 @@
  ***************************************************************************/
 
 // !!! enable this, if Linux XF86VidMode is not supported: 
-#define NOVMODE
+//#define NOVMODE
 
 #include "stdafx.h"
 
@@ -27,6 +27,7 @@
 
 #include "config.h"
 
+#define NOVMODE
 #ifndef NOVMODE
 #include <X11/extensions/xf86vmode.h>
 static XF86VidModeModeInfo **modes=0;
@@ -35,13 +36,8 @@ static int iOldMode=0;
 
 #endif
 
-#if defined(__linux__)
-#include <sys/wait.h>
-#endif
-
 #define _IN_GPU
 
-#include "stdafx.h"
 #include "externals.h"
 #include "gpu.h"
 #include "draw.h"
@@ -53,7 +49,6 @@ static int iOldMode=0;
 #include "fps.h"
 #include "key.h"
 #include "gte_accuracy.h"
-//#include "pgxp_gpu.h"
 #ifdef _WINDOWS
 #include "resource.h"
 #include "ssave.h"
@@ -125,8 +120,6 @@ signed   int   *psxVsl;
 BOOL            bNeedInterlaceUpdate=FALSE;
 BOOL            bNeedRGB24Update=FALSE;
 BOOL            bChangeWinMode=FALSE;
-GLuint*		fbo;
-
 
 #ifdef _WINDOWS
 extern HGLRC    GLCONTEXT;
@@ -134,11 +127,11 @@ extern HGLRC    GLCONTEXT;
 
 uint32_t        ulStatusControl[256];
 
-#if 0
 ////////////////////////////////////////////////////////////////////////
 // global GPU vars
 ////////////////////////////////////////////////////////////////////////
 
+#if 0
 static int      GPUdataRet;
 int             lGPUstatusRet;
 char            szDispBuf[64];
@@ -191,6 +184,7 @@ int             iRumbleVal    = 0;
 int             iRumbleTime   = 0;
 uint32_t        vBlank=0;
 #endif
+BOOL			oddLines;
 
 #if 1
 unsigned char * pGfxCardScreen=0;
@@ -207,9 +201,6 @@ static int           gpuDataP = 0;
 // possible psx display widths
 short dispWidths[8] = {256,320,512,640,368,384,512,640};
 #endif
-
-static void (*rearmed_get_layer_pos)(int *x, int *y, int *w, int *h);
-static void (*flip_cb)(void);
 
 ////////////////////////////////////////////////////////////////////////
 // stuff to make this a true PDK module
@@ -543,8 +534,6 @@ void CALLBACK GPUmakeSnapshot(void)
 
 long CALLBACK GPUinit()
 {
- FUNC;
-
  memset(ulStatusControl,0,256*sizeof(uint32_t));
 
  // different ways of accessing PSX VRAM
@@ -609,6 +598,7 @@ long CALLBACK GPUinit()
  // device initialised already !
  //lGPUstatusRet = 0x74000000;
  vBlank = 0;
+ oddLines = FALSE;
 
  STATUSREG = 0x14802000;
  GPUIsIdle;
@@ -621,8 +611,10 @@ long CALLBACK GPUinit()
 
 long GPUopen(unsigned long * disp,char * CapText,char * CfgFile)
 {
- FUNC;
+// pCaptionText=CapText;
+#if !defined (_MACGL)
  pConfigFile=CfgFile;
+#endif
 
  ReadConfig();                                         // read text file for config
 
@@ -638,17 +630,38 @@ long GPUopen(unsigned long * disp,char * CapText,char * CfgFile)
 
  GLinitialize();                                       // init opengl
 
-// MakeDisplayLists();
-
- resetGteVertices();
-
- return 0;
-
+return 0;
 }
+
+
 
 ////////////////////////////////////////////////////////////////////////
 // close
 ////////////////////////////////////////////////////////////////////////
+
+#ifdef _WINDOWS
+
+long CALLBACK GPUclose()                               // WINDOWS CLOSE
+{
+ ExitKeyHandler();
+
+ GLcleanup();                                          // close OGL
+
+ if(bChangeRes)                                        // change res back
+  ChangeDisplaySettings(NULL,0);
+
+ if(hPSEMenu)                                          // set menu again
+  SetMenu(hWWindow,hPSEMenu);
+
+ if(pGfxCardScreen) free(pGfxCardScreen);              // free helper memory
+ pGfxCardScreen=0;
+
+ if(iNoScreenSaver) EnableScreenSaver(TRUE);           // enable screen saver again
+
+ return 0;
+}
+
+#else
 
 long GPUclose()                                        // LINUX CLOSE
 {
@@ -656,15 +669,13 @@ long GPUclose()                                        // LINUX CLOSE
 
  if(pGfxCardScreen) free(pGfxCardScreen);              // free helper memory
  pGfxCardScreen=0;
-#if 0
 #if defined (_MACGL)
  CloseDisplay();
-#else
- osd_close_display();                                  // destroy display
-#endif
 #endif
  return 0;
 }
+
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 // I shot the sheriff... last function called from emu 
@@ -757,9 +768,7 @@ static __inline void XPRIMdrawTexturedQuad(OGLVertex* vertex1, OGLVertex* vertex
 
 void SetScanLines(void)
 {
-// FUNC;
  glLoadIdentity();
-if ((iResX!=0) && (iResY!=0))
  glOrtho(0,iResX,iResY, 0, -1, 1);
 
  if(bKeepRatio)
@@ -835,8 +844,6 @@ if ((iResX!=0) && (iResY!=0))
  glOrtho(0,PSXDisplay.DisplayMode.x,
          PSXDisplay.DisplayMode.y, 0, -1, 1);
 
- //PGXP_SetMatrix(0, PSXDisplay.DisplayMode.x, PSXDisplay.DisplayMode.y, 0, -1, 1);
-
  if(bKeepRatio)
   glViewport(rRatioRect.left,
              iResY-(rRatioRect.top+rRatioRect.bottom),
@@ -853,8 +860,8 @@ if ((iResX!=0) && (iResY!=0))
 
 void BlurBackBuffer(void)
 {
- FUNC;
  if(!gTexBlurName) return;
+
  if(bKeepRatio) glViewport(0,0,iResX,iResY);
 
  glDisable(GL_SCISSOR_TEST);
@@ -922,8 +929,8 @@ void BlurBackBuffer(void)
 
 void UnBlurBackBuffer(void)
 {
- FUNC;
  if(!gTexBlurName) return;
+
  if(bKeepRatio) glViewport(0,0,iResX,iResY);
 
  glDisable(GL_SCISSOR_TEST);
@@ -989,9 +996,16 @@ int iSkipTwo=0;
 void updateDisplay(void)                               // UPDATE DISPLAY
 {
  BOOL bBlur=FALSE;
+
+#ifdef _WINDOWS
+ HDC hdc=GetDC(hWWindow);                              // windows:
+ wglMakeCurrent(hdc,GLCONTEXT);                        // -> make context current again
+#endif
+#if defined (_MACGL)
+ BringContextForward();
+#endif
  bFakeFrontBuffer=FALSE;
  bRenderFrontBuffer=FALSE;
- //glBindFramebuffer(GL_FRAMEBUFFER,fbo);
 
  if(iRenderFVR)                                        // frame buffer read fix mode still active?
   {
@@ -1050,7 +1064,7 @@ void updateDisplay(void)                               // UPDATE DISPLAY
 
  if(iUseScanLines) SetScanLines();                     // "scan lines" activated? do it
 
-// if(usCursorActive) ShowGunCursor();                   // "gun cursor" wanted? show 'em
+ if(usCursorActive) ShowGunCursor();                   // "gun cursor" wanted? show 'em
 
  if(dwActFixes&128)                                    // special FPS limitation mode?
   {
@@ -1059,17 +1073,15 @@ void updateDisplay(void)                               // UPDATE DISPLAY
     PCcalcfps();         
   }
 
-// if(gTexPicName) DisplayPic();                         // some gpu info picture active? display it
+ if(gTexPicName) DisplayPic();                         // some gpu info picture active? display it
 
  if(bSnapShot) DoSnapShot();                           // snapshot key pressed? cheeeese :)
 
-#if 0
  if(ulKeybits&KEY_SHOWFPS)                             // wanna see FPS?
   {
    sprintf(szDispBuf,"%06.1f",fps_cur);
-   DisplayText();                                      // -> show it
+   //DisplayText();                                      // -> show it
   }
-#endif
 
  //----------------------------------------------------//
  // main buffer swapping (well, or skip it)
@@ -1079,8 +1091,14 @@ void updateDisplay(void)                               // UPDATE DISPLAY
    if(!bSkipNextFrame) 
     {
      if(iDrawnSomething)
-      if(flip_cb)
-       flip_cb;
+#ifdef _WINDOWS
+      SwapBuffers(wglGetCurrentDC());                  // -> to skip or not to skip
+#elif defined(_MACGL)
+     DoBufferSwap();
+#else
+      //glXSwapBuffers(display,window);
+	1==1;
+#endif
     }
    if(dwActFixes&0x180)                                // -> special old frame skipping: skip max one in a row
     {
@@ -1090,10 +1108,19 @@ void updateDisplay(void)                               // UPDATE DISPLAY
     }
    else FrameSkip();
   }
+ else                                                  // no skip ?
+  {
+   if(iDrawnSomething)
+#ifdef _WINDOWS
+    SwapBuffers(wglGetCurrentDC());                    // -> swap
+#elif defined(_MACGL)
+   DoBufferSwap();
+#else
+    //glXSwapBuffers(display,window);
+	1==1;
+#endif
+  }
 
-if (flip_cb)
-	flip_cb();
-#if 1
  iDrawnSomething=0;
 
  //----------------------------------------------------//
@@ -1179,8 +1206,7 @@ if (flip_cb)
  ReleaseDC(hWWindow,hdc);                              // ! important !
 #endif
 
-// if(ulKeybits&KEY_RESETTEXSTORE) ResetStuff();         // reset on gpu mode changes? do it before next frame is filled
-#endif
+ if(ulKeybits&KEY_RESETTEXSTORE) ResetStuff();         // reset on gpu mode changes? do it before next frame is filled
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1198,21 +1224,32 @@ void updateFrontDisplay(void)
 
  if(iUseScanLines) SetScanLines();
 
-// if(usCursorActive) ShowGunCursor();
+ if(usCursorActive) ShowGunCursor();
 
  bFakeFrontBuffer=FALSE;
  bRenderFrontBuffer=FALSE;
 
-// if(gTexPicName) DisplayPic();
-/*
- if(ulKeybits&KEY_SHOWFPS) DisplayText();
-*/
+ if(gTexPicName) DisplayPic();
+ //if(ulKeybits&KEY_SHOWFPS) DisplayText();
 
+#ifdef _WINDOWS
+  {                                                    // windows: 
+   HDC hdc=GetDC(hWWindow);
+   wglMakeCurrent(hdc,GLCONTEXT);                      // -> make current again
+   if(iDrawnSomething)
+    SwapBuffers(wglGetCurrentDC());                    // -> swap
+   ReleaseDC(hWWindow,hdc);                            // -> ! important !
+  }
+#elif defined (_MACGL)
+ if (iDrawnSomething){
+  DoBufferSwap();
+ }
+#else
  if(iDrawnSomething)                                   // linux:
-  if(flip_cb)
-	flip_cb;
+  //glXSwapBuffers(display,window);
+	1==1;
+#endif
 
- iBlurBuffer=1;
  if(iBlurBuffer) UnBlurBackBuffer();
 }
                                              
@@ -1297,7 +1334,6 @@ void ChangeDispOffsetsY(void)                          // CENTER Y
 
 void SetAspectRatio(void)
 {
- //FUNC;
  float xs,ys,s,resx,resy;RECT r;
 
  if(!PSXDisplay.DisplayModeNew.x) return;
@@ -1306,7 +1342,6 @@ void SetAspectRatio(void)
  resx = bForceRatio43 ? 640.0f : (float)PSXDisplay.DisplayModeNew.x;
  resy = bForceRatio43 ? 480.0f : (float)PSXDisplay.DisplayModeNew.y;
 
-#if 1
  xs=(float)iResX/resx;
  ys=(float)iResY/resy;
 
@@ -1358,18 +1393,7 @@ void SetAspectRatio(void)
   }
 
  rRatioRect=r;
-#else
- // pcsx-rearmed hack
- if (rearmed_get_layer_pos != NULL)
-   rearmed_get_layer_pos(&rRatioRect.left, &rRatioRect.top, &rRatioRect.right, &rRatioRect.bottom);
-rRatioRect.left = 0;
-rRatioRect.top = 0;
-rRatioRect.right = 640;
-rRatioRect.bottom = 480;
 
-#endif
-
- //glBindFramebuffer(GL_FRAMEBUFFER,fbo);
 
  glViewport(rRatioRect.left,
             iResY-(rRatioRect.top+rRatioRect.bottom),
@@ -1397,9 +1421,6 @@ void updateDisplayIfChanged(void)
    glLoadIdentity();
    glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
              PSXDisplay.DisplayModeNew.y, 0, -1, 1);
-
-   //PGXP_SetMatrix(0, PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0, -1, 1);
-
    if(bKeepRatio) SetAspectRatio();
   }
 
@@ -1434,6 +1455,19 @@ void updateDisplayIfChanged(void)
  if(bUp) updateDisplay();                              // yeah, real update (swap buffer)
 }
 
+////////////////////////////////////////////////////////////////////////
+// window mode <-> fullscreen mode (windows)
+////////////////////////////////////////////////////////////////////////
+
+#ifdef _WINDOWS
+void ChangeWindowMode(void)
+ {
+  GPUclose();
+  bWindowMode=!bWindowMode;
+  GPUopen(hWWindow);
+  bChangeWinMode=FALSE;
+ }
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 // swap update check (called by psx vsync function)
@@ -1497,8 +1531,6 @@ BOOL bSwapCheck(void)
 
 void CALLBACK GPUcursor(int iPlayer,int x,int y)
 {
- FUNC;
-#if 0
  if(iPlayer<0) return;
  if(iPlayer>7) return;
 
@@ -1511,7 +1543,6 @@ void CALLBACK GPUcursor(int iPlayer,int x,int y)
 
  ptCursorPoint[iPlayer].x=x;
  ptCursorPoint[iPlayer].y=y;
-#endif
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1523,9 +1554,8 @@ static unsigned short usFirstPos=2;
 
 void CALLBACK GPUupdateLace(void)
 {
- //FUNC;
- //if(!(dwActFixes&0x1000))                               
- // STATUSREG^=0x80000000;                               // interlaced bit toggle, if the CC game fix is not active (see gpuReadStatus)
+ if(!(dwActFixes&0x1000))                               
+  STATUSREG^=0x80000000;                               // interlaced bit toggle, if the CC game fix is not active (see gpuReadStatus)
 
  if(!(dwActFixes&128))                                 // normal frame limit func
   CheckFrameRate();
@@ -1537,7 +1567,7 @@ void CALLBACK GPUupdateLace(void)
 
  if(PSXDisplay.Interlaced)                             // interlaced mode?
   {
-   STATUSREG^=0x80000000;
+   //STATUSREG^=0x80000000;
    if(PSXDisplay.DisplayMode.x>0 && PSXDisplay.DisplayMode.y>0)
     {
      updateDisplay();                                  // -> swap buffers (new frame)
@@ -1555,9 +1585,6 @@ void CALLBACK GPUupdateLace(void)
 #if defined(_WINDOWS) || defined(_MACGL)
  if(bChangeWinMode) ChangeWindowMode();
 #endif
-
-
- //bIsFirstFrame = 1;		//reinitialize GL state at the start of the next frame
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1565,7 +1592,16 @@ void CALLBACK GPUupdateLace(void)
 ////////////////////////////////////////////////////////////////////////
 
 uint32_t CALLBACK GPUreadStatus(void)
-{
+{   
+ if (vBlank || oddLines == FALSE) 
+  { // vblank or even lines
+   STATUSREG &= ~(0x80000000);
+  } 
+ else 
+  { // Oddlines and not vblank
+   STATUSREG |= 0x80000000;
+  }
+ 
  if(dwActFixes&0x1000)                                 // CC game fix
   {
    static int iNumRead=0;
@@ -1592,7 +1628,7 @@ uint32_t CALLBACK GPUreadStatus(void)
     }
   }
 
- return STATUSREG | (vBlank ? 0x80000000 : 0 );;
+ return STATUSREG;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2617,10 +2653,11 @@ static __inline BOOL CheckForEndlessLoop(uint32_t laddr)
 
 long CALLBACK GPUdmaChain(uint32_t *baseAddrL, uint32_t addr)
 {
- //FUNC;
  uint32_t dmaMem;
  unsigned char * baseAddrB;
  short count;unsigned int DMACommandCounter = 0;
+
+ if(bIsFirstFrame) GLinitialize();
 
  GPUIsBusy;
 
@@ -2628,7 +2665,6 @@ long CALLBACK GPUdmaChain(uint32_t *baseAddrL, uint32_t addr)
 
  baseAddrB = (unsigned char*) baseAddrL;
 
- uint32_t depthCount = 0;
  do
   {
    if(iGPUHeight==512) addr&=0x1FFFFC;
@@ -2640,13 +2676,7 @@ long CALLBACK GPUdmaChain(uint32_t *baseAddrL, uint32_t addr)
 
    dmaMem=addr+4;
 
-   if (count > 0)
-   {
-	   //PGXP_SetAddress(dmaMem >> 2, &baseAddrL[dmaMem >> 2], count);
-	   GPUwriteDataMem(&baseAddrL[dmaMem >> 2], count);
-   }
-   else
-	   //PGXP_SetDepth(depthCount++);
+   if(count>0) GPUwriteDataMem(&baseAddrL[dmaMem>>2],count);
 
    addr = baseAddrL[addr>>2]&0xffffff;
   }
@@ -2663,7 +2693,6 @@ long CALLBACK GPUdmaChain(uint32_t *baseAddrL, uint32_t addr)
 
 void CALLBACK GPUabout(void)
 {
- FUNC;
 #ifdef _WINDOWS
 	HWND hWP=GetActiveWindow();                           // to be sure
 	DialogBox(hInst,MAKEINTRESOURCE(IDD_DIALOG_ABOUT), hWP,(DLGPROC)AboutDlgProc);
@@ -3069,11 +3098,9 @@ void CALLBACK GPUgetScreenPic(unsigned char * pMem)
 
 void CALLBACK GPUshowScreenPic(unsigned char * pMem)
 {
-#if 0
  DestroyPic();
  if(pMem==0) return;
  CreatePic(pMem);
-#endif
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3107,22 +3134,20 @@ void CALLBACK GPUvisualVibration(uint32_t iSmall, uint32_t iBig)
 
 void CALLBACK GPUdisplayFlags(uint32_t dwFlags)
 {
- //dwCoreFlags=dwFlags;
-}
-
-
-// pcsx-rearmed callbacks
-void CALLBACK GPUrearmedCallbacks(const struct rearmed_cbs *cbs)
-{
- FUNC;
- //rearmed_get_layer_pos = cbs[0];
- //fbo = cbs->gpu_peopsgl.fbo;
- flip_cb = cbs->gpu_peopsgl.flip_cb;
- retroGetProcAddress = &cbs->gpu_peopsgl.retroGetProcAddress;
+ dwCoreFlags=dwFlags;
 }
 
 void CALLBACK GPUvBlank( int val )
 {
- //FUNC;
-    vBlank = val;
+ vBlank = val;
+ oddLines = oddLines ? FALSE : TRUE; // bit changes per frame when not interlaced
+ //printf("VB %x (%x)\n", oddLines, vBlank);
+}
+
+void CALLBACK GPUhSync( int val ) {
+ // Interlaced mode - update bit every scanline
+ if (PSXDisplay.Interlaced) {
+   oddLines = (val%2 ? FALSE : TRUE);
+ }
+ //printf("HS %x (%x)\n", oddLines, vBlank);
 }

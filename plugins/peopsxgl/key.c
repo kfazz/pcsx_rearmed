@@ -30,7 +30,7 @@
 // KeyBoard handler stuff
 ////////////////////////////////////////////////////////////////////////
 
-uint32_t   ulKeybits = 0;
+//uint32_t   ulKeybits = 0;
 
 ////////////////////////////////////////////////////////////////////////
 // keyboard handler (UNIX)
@@ -69,7 +69,7 @@ void GPUkeypressed(int keycode)
        GPUopen(disp, "2");
       break;*/
 			 
-#ifndef _MACGL
+#if 0 //ndef _MACGL
       case XK_section:
        bUseFrameSkip=!bUseFrameSkip;
        bUseFrameLimit=!bUseFrameLimit;

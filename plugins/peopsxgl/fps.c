@@ -36,7 +36,6 @@
 
 BOOL           bIsPerformanceCounter=FALSE;
 float          fFrameRateHz=0;
-float          speed=1;
 DWORD          dwFrameRateTicks=16;
 float          fFrameRate;
 int            iFrameLimit;
@@ -65,9 +64,7 @@ void FrameCap(void)
 {
  static unsigned long curticks, lastticks, _ticks_since_last_update;
  static unsigned long TicksToWait = 0;
- double remTime;
  bool Waiting = TRUE;
- DWORD frTicks=(DWORD)(dwFrameRateTicks / speed);
 
   {
    curticks = timeGetTime();
@@ -78,9 +75,9 @@ void FrameCap(void)
     {
      lastticks = curticks;
 
-     if((_ticks_since_last_update-TicksToWait) > frTicks)
+     if((_ticks_since_last_update-TicksToWait) > dwFrameRateTicks)
           TicksToWait=0;
-     else TicksToWait=frTicks-(_ticks_since_last_update-TicksToWait);
+     else TicksToWait=dwFrameRateTicks-(_ticks_since_last_update-TicksToWait);
     }
    else
     {
@@ -88,18 +85,13 @@ void FrameCap(void)
       {
        curticks = timeGetTime(); 
        _ticks_since_last_update = curticks - lastticks; 
-       remTime = (TicksToWait - _ticks_since_last_update) * 1e6 / TIMEBASE;
        if ((_ticks_since_last_update > TicksToWait) ||
            (curticks < lastticks)) 
         { 
          Waiting = FALSE;
          lastticks = curticks;
-         TicksToWait = frTicks;
+         TicksToWait = dwFrameRateTicks; 
         } 
-       else if (remTime > 2)
-       {
-        usleep(remTime - 2);
-       }
       } 
     } 
   } 
@@ -113,15 +105,9 @@ void FrameSkip(void)
  static int   iNumSkips=0,iAdditionalSkip=0;           // number of additional frames to skip
  static DWORD dwLastLace=0;                            // helper var for frame limitation
  static DWORD curticks, lastticks, _ticks_since_last_update;
- DWORD frTicks=(DWORD)(dwFrameRateTicks / speed);
- double remTime;
- DWORD maxSkipTicks = 0;
 
  if(!dwLaceCnt) return;                                // important: if no updatelace happened, we ignore it completely
 
- if (speed > 1) {
-  maxSkipTicks = 1/30. * TIMEBASE;
- }
  if(iNumSkips)                                         // we are in skipping mode?
   {
    dwLastLace+=dwLaceCnt;                              // -> calc frame limit helper (number of laces)
@@ -142,28 +128,23 @@ void FrameSkip(void)
        curticks = timeGetTime();
        _ticks_since_last_update= dwT+curticks - lastticks;
 
-       dwWaitTime=dwLastLace*frTicks;                  // -> and now we calc the time the real psx would have needed
+       dwWaitTime=dwLastLace*dwFrameRateTicks;         // -> and now we calc the time the real psx would have needed
 
        if(_ticks_since_last_update<dwWaitTime)         // -> we were too fast?
         {                                    
          if((dwWaitTime-_ticks_since_last_update)>     // -> some more security, to prevent
-            (60*frTicks))                              //    wrong waiting times
+            (60*dwFrameRateTicks))                     //    wrong waiting times
           _ticks_since_last_update=dwWaitTime;
 
          while(_ticks_since_last_update<dwWaitTime)    // -> loop until we have reached the real psx time
           {                                            //    (that's the additional limitation, yup)
-           remTime = (dwWaitTime - _ticks_since_last_update) * 1e6 / TIMEBASE;
-           if (remTime > 2) {
-            usleep(remTime - 2);
-           }
            curticks = timeGetTime();
            _ticks_since_last_update = dwT+curticks - lastticks;
           }
         }
        else                                            // we were still too slow ?!!?
         {
-         if(iAdditionalSkip<MAXSKIP &&
-           _ticks_since_last_update<maxSkipTicks)                   // -> well, somewhen we really have to stop skipping on very slow systems
+         if(iAdditionalSkip<MAXSKIP)                   // -> well, somewhen we really have to stop skipping on very slow systems
           {
            iAdditionalSkip++;                          // -> inc our watchdog var
            dwLaceCnt=0;                                // -> reset lace count
@@ -189,7 +170,7 @@ void FrameSkip(void)
    _ticks_since_last_update = curticks - lastticks;
 
    dwLastLace=dwLaceCnt;                               // store curr count (frame limitation helper)
-   dwWaitTime=dwLaceCnt*frTicks;                       // calc the 'real psx lace time'
+   dwWaitTime=dwLaceCnt*dwFrameRateTicks;              // calc the 'real psx lace time'
 
    if(_ticks_since_last_update>dwWaitTime)             // hey, we needed way too long for that frame...
     {
@@ -213,10 +194,6 @@ void FrameSkip(void)
 
      while(_ticks_since_last_update<dwWaitTime)        // just do a waiting loop...
       {
-       remTime = (dwWaitTime - _ticks_since_last_update) * 1e6 / TIMEBASE;
-       if (remTime > 2) {
-        usleep(remTime - 2);
-       }
        curticks = timeGetTime();
        _ticks_since_last_update = curticks - lastticks;
       }
@@ -270,8 +247,8 @@ void calcfps(void)
    fps_cnt = 0; 
    fps_tck = 1; 
  
-   if(bUseFrameLimit && fps_cur>fFrameRateHz * speed)            // optical adjust ;) avoids flickering fps display
-    fps_cur=fFrameRateHz * speed;
+   if(bUseFrameLimit && fps_cur>fFrameRateHz)            // optical adjust ;) avoids flickering fps display 
+    fps_cur=fFrameRateHz; 
   } 
 } 
 
@@ -290,7 +267,7 @@ void PCFrameCap (void)
     { 
      Waiting = FALSE; 
      lastticks = curticks; 
-     TicksToWait = (TIMEBASE / (unsigned long)(fFrameRateHz * speed));
+     TicksToWait = (TIMEBASE / (unsigned long)fFrameRateHz); 
     } 
   } 
 } 
@@ -390,23 +367,17 @@ void CheckFrameRate(void)                              // called in updatelace (
      if(dwLaceCnt>=MAXLACE && bUseFrameLimit) 
       {
        if(dwLaceCnt==MAXLACE) bInitCap=TRUE;
-       PCFrameCap();
+       FrameCap();
       }
     }
-   else if(bUseFrameLimit) PCFrameCap();
+   else if(bUseFrameLimit) FrameCap();
    calcfps();                                          // -> calc fps display in skipping mode
   }                                                  
  else                                                  // -> non-skipping mode:
   {
-   if(bUseFrameLimit) PCFrameCap();
+   if(bUseFrameLimit) FrameCap();
    if(ulKeybits&KEY_SHOWFPS) calcfps();  
   }
-}
-
-void CALLBACK GPUsetSpeed(float newSpeed) {
- if (newSpeed > 0 && newSpeed <= 1000) {
-  speed = newSpeed;
- }
 }
 
 void CALLBACK GPUsetframelimit(unsigned long option)   // new EPSXE interface func: main emu can enable/disable fps limitation this way

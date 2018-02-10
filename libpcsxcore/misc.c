@@ -178,11 +178,11 @@ int LoadCdrom() {
 
 	// not the best place to do it, but since BIOS boot logo killer
 	// is just below, do it here
-	fake_bios_gpu_setup();
+	//fake_bios_gpu_setup();
 
 	if (!Config.HLE) {
 		// skip BIOS logos
-		psxRegs.pc = psxRegs.GPR.n.ra;
+		//psxRegs.pc = psxRegs.GPR.n.ra;
 		return 0;
 	}
 

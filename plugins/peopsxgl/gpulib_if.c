@@ -15,18 +15,17 @@
  *   additional informations.                                              *
  *                                                                         *
  ***************************************************************************/
-
-#include "../../include/libretro.h"
 #include "cfg.c"
 #include "fps.c"
 #include "gte_accuracy.c"
 #include "soft.c"
-//#include "menu.c"
 #include "draw.c"
 #include "texture.c"
 #include "soft.h"
 #include "prim.c"
 //#include "hud.c" 
+#include "menu.c"
+#include "key.c"
 #include "gpu.c"
 #include "externals.h"
 
@@ -94,7 +93,7 @@ BOOL            bChangeRes;
 BOOL            bWindowMode;
 int             iWinSize;
 int    bFullScreen=0;
-uint32_t   ulKeybits = 2; //show fps
+uint32_t   ulKeybits = 0; //just define this here instead of pulling in all teh keys.c stuff
 #endif
 
 #if 1
@@ -119,10 +118,10 @@ uint32_t        vBlank=0;
 #endif
 
 //from menu.c
-//unsigned short usCursorActive=0;
-//GLuint gTexPicName=0;
-//PSXPoint_t     ptCursorPoint[8];
-//uint32_t       dwCoreFlags=0;
+unsigned short usCursorActive=0;
+GLuint gTexPicName=0;
+PSXPoint_t     ptCursorPoint[8];
+uint32_t       dwCoreFlags=0;
 
 
 static void fps_update(void);
@@ -291,4 +290,8 @@ switch((gdata>>24)&0xff)
 }
 
 #include <stdint.h>
+
+void CALLBACK GPUrearmedCallbacks(const struct rearmed_cbs *cbs)
+{
+}
 

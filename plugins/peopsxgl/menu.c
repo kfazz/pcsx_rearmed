@@ -25,9 +25,9 @@
 #include "menu.h"
 #include "gpu.h"
 
-uint32_t       dwCoreFlags=0;
-PSXPoint_t     ptCursorPoint[8];
-unsigned short usCursorActive=0;
+//uint32_t       dwCoreFlags=0;
+//PSXPoint_t     ptCursorPoint[8];
+//unsigned short usCursorActive=0;
 
 ////////////////////////////////////////////////////////////////////////
 // field with menu chars... like good old C64 time :)
@@ -124,7 +124,7 @@ GLubyte texrasters[40][12]= {
 ////////////////////////////////////////////////////////////////////////
 
 GLuint gTexFontName=0;
-GLuint gTexPicName=0;
+//GLuint gTexPicName=0;
 GLuint gTexCursorName=0;
 
 void MakeDisplayLists(void)                            // MAKE FONT 

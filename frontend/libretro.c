@@ -1582,13 +1582,13 @@ else if (!fb_ready) return;
 		}
 	}
 
-       glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+       //glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
        //GLinitialize();
 
-	glViewport(0,0,640,480);                               
-	glScissor(0, 0, 640,480);                        // init clipping (fullscreen)
-	glEnable(GL_SCISSOR_TEST);
-	SetAspectRatio();
+	//glViewport(0,0,640,480);                               
+	//glScissor(0, 0, 640,480);                        // init clipping (fullscreen)
+	//glEnable(GL_SCISSOR_TEST);
+	//SetAspectRatio();
 
 	glMatrixMode(GL_PROJECTION);                          // init projection with psx resolution
 	glLoadIdentity();
@@ -1597,29 +1597,6 @@ else if (!fb_ready) return;
 	glOrtho(0,PSXDisplay.DisplayMode.x,
 	          PSXDisplay.DisplayMode.y, 0, -1, 1);
 
-
-	if(iZBufferDepth)
-	{
-		glEnable(GL_DEPTH_TEST);  
-		glDepthFunc(GL_ALWAYS);
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-	}
-	else {
-		glDisable(GL_DEPTH_TEST);
-		glDepthFunc(GL_LESS);
-		glClear(GL_COLOR_BUFFER_BIT);
-	}
-
-#if 1
-	if(bBlendEnable)	glEnable(GL_BLEND);
-	if(bDrawDither)		glEnable(GL_DITHER);
-	if(bTexEnabled)		glEnable(GL_TEXTURE_2D);
-#else
-	if(bBlendEnable)	{glDisable(GL_BLEND);bBlendEnable=false;}
-	if(bDrawDither)		{glDisable(GL_DITHER);bDrawDither=false;}
-	if(bTexEnabled)		{glDisable(GL_TEXTURE_2D);bTexEnabled=false;}
-	
-#endif
 
 
 #if 0	
@@ -1714,12 +1691,12 @@ else if (!fb_ready) return;
 	//glFlush();
 	//glFinish();
 
-        glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
+      //  glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
 	video_cb(RETRO_HW_FRAME_BUFFER_VALID, vout_width, vout_height, 0);
 	vout_fb_dirty = 0;
 
-	glPolygonMode(GL_FRONT, GL_FILL);
-	glPolygonMode(GL_BACK, GL_FILL);
+	//glPolygonMode(GL_FRONT, GL_FILL);
+	//glPolygonMode(GL_BACK, GL_FILL);
 
 }
 

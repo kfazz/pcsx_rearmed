@@ -201,7 +201,6 @@ typedef struct OGLVertexTag
  GLfloat x;
  GLfloat y;
  GLfloat z;
- GLfloat w;
 
  GLfloat sow;
  GLfloat tow;
@@ -212,8 +211,6 @@ typedef struct OGLVertexTag
    unsigned int lcol;
   } c;
 
- unsigned int PGXP_flag;
- unsigned int Vert_ID;
 } OGLVertex;
 
 typedef union EXShortTag
@@ -429,7 +426,6 @@ extern BOOL           bNeedInterlaceUpdate;
 extern BOOL           bNeedWriteUpload;
 extern BOOL           bSkipNextFrame;
 extern uint32_t       vBlank;
-extern GLuint         *fbo;
 
 extern int bFullScreen;
 
