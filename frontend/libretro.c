@@ -373,8 +373,11 @@ static bool init_program_now = true;
 static void context_reset(void)
 {
    printf("context_reset.\n");
-   glsm_ctl(GLSM_CTL_STATE_CONTEXT_RESET, NULL);
-   //rglgen_resolve_symbols(hw_render.get_proc_address);
+   //glsm_ctl(GLSM_CTL_STATE_CONTEXT_RESET, NULL);
+   rglgen_resolve_symbols(hw_render.get_proc_address);
+   glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
+
+
 
    memset(&pl_rearmed_cbs.gpu_peopsgl, 0, sizeof(pl_rearmed_cbs.gpu_peopsgl));
 
@@ -384,8 +387,7 @@ static void context_reset(void)
    init_program_now = true;
 
 
-    glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
-
+//    glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
 	        if (GPU_open != NULL && GPU_close != NULL) {
 		printf("gpu_open\n");
 	        GPU_close();
@@ -591,7 +593,7 @@ void retro_get_system_info(struct retro_system_info *info)
 void retro_get_system_av_info(struct retro_system_av_info *info)
 {
 	memset(info, 0, sizeof(*info));
-	info->timing.fps            = is_pal_mode ? 50 : 60;
+	info->timing.fps            = is_pal_mode ? 55 : 66;
 	info->timing.sample_rate    = 44100;
 	info->geometry.base_width   = 320;
 	info->geometry.base_height  = 240;
@@ -971,7 +973,7 @@ bool retro_load_game(const struct retro_game_info *info)
 
    if (!glsm_ctl(GLSM_CTL_STATE_CONTEXT_INIT, &params))
       return false;
-#else
+//#else
 
 
    if (!retro_init_hw_context())
@@ -1521,14 +1523,14 @@ void retro_run(void)
 #if 1
     if(fb_ready && (first_time==1))
 	{
-	        //glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
-		glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+	        glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
+//		glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
 	        if (GPU_open != NULL && GPU_close != NULL) {
 		printf("gpu_open\n");
 	        GPU_close();
 	        GPU_open(&gpuDisp, "PCSX", NULL);
 		fake_bios_gpu_setup();
-	        glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
+//	        glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
 		video_cb(NULL, vout_width, vout_height, 0);
 #if 1
 	int i;
@@ -1584,7 +1586,8 @@ else if (!fb_ready) return;
 		}
 	}
 
-       glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+      // glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+	glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
 
 	glMatrixMode(GL_PROJECTION);                          // init projection with psx resolution
 	glLoadIdentity();
@@ -1595,7 +1598,7 @@ else if (!fb_ready) return;
 	stop = 0;
 	psxCpu->Execute();
 
-        glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
+       // glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
 	video_cb(RETRO_HW_FRAME_BUFFER_VALID, vout_width, vout_height, 0);
 	vout_fb_dirty = 0;
 }
