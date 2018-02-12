@@ -1522,11 +1522,13 @@ void retro_run(void)
     if(fb_ready && (first_time==1))
 	{
 	        //glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
+		glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
 	        if (GPU_open != NULL && GPU_close != NULL) {
 		printf("gpu_open\n");
 	        GPU_close();
 	        GPU_open(&gpuDisp, "PCSX", NULL);
 		fake_bios_gpu_setup();
+	        glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
 		video_cb(NULL, vout_width, vout_height, 0);
 #if 1
 	int i;
@@ -1582,13 +1584,7 @@ else if (!fb_ready) return;
 		}
 	}
 
-       //glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
-       //GLinitialize();
-
-	//glViewport(0,0,640,480);                               
-	//glScissor(0, 0, 640,480);                        // init clipping (fullscreen)
-	//glEnable(GL_SCISSOR_TEST);
-	//SetAspectRatio();
+       glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
 
 	glMatrixMode(GL_PROJECTION);                          // init projection with psx resolution
 	glLoadIdentity();
@@ -1596,108 +1592,12 @@ else if (!fb_ready) return;
 	if ((PSXDisplay.DisplayMode.x!=0) && (PSXDisplay.DisplayMode.y!=0))
 	glOrtho(0,PSXDisplay.DisplayMode.x,
 	          PSXDisplay.DisplayMode.y, 0, -1, 1);
-
-
-
-#if 0	
-	glLineWidth(2);
-	glPolygonMode(GL_FRONT, GL_LINE);
-	glPolygonMode(GL_BACK, GL_LINE);
-#endif
-
-
-#if 0
-        //glBindFramebuffer(RARCH_GL_FRAMEBUFFER, hw_render.get_current_framebuffer());
-
-#if 1
-	glViewport(0,0,640,480);                               
-	glScissor(0, 0, 640, 480);                        // init clipping (fullscreen)
-	glEnable(GL_SCISSOR_TEST);
-	SetAspectRatio();
-#endif                       
-
-#if 0
-	glMatrixMode(GL_TEXTURE);                             // init psx tex sow and tow if not "ownscale"
-	glLoadIdentity();
-	//glScalef(1.0f/255.99f,1.0f/255.99f,1.0f);
-
-#endif 
-
-#if 1
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	//glScalef(1.0f/255.99f,1.0f/255.99f,1.0f);             
-                          				
-#endif
-
-	glOrtho(0,320,
-          240, 0, -1, 1);
-
-	glEnable(GL_ALPHA_TEST);
-
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);                 // first buffer clear
-
-	if(iZBufferDepth)
-	{
-		glEnable(GL_DEPTH_TEST);  
-		glDepthFunc(GL_ALWAYS);
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-	}
-	else {
-		glDisable(GL_DEPTH_TEST);
-		glDepthFunc(GL_LESS);
-		glClear(GL_COLOR_BUFFER_BIT);
-	}
-
-	if (bUseLines)
-//	if (true)
-	{
-	glPolygonMode(GL_FRONT, GL_LINE);
-	glPolygonMode(GL_BACK, GL_LINE); 
-	}
-	else
-	{
-	glPolygonMode(GL_FRONT, GL_FILL);
-	glPolygonMode(GL_BACK, GL_FILL);
-	}
-#if 0
-	if(bBlendEnable)	glEnable(GL_BLEND);
-	if(bDrawDither)		glEnable(GL_DITHER);
-	if(bTexEnabled)		glEnable(GL_TEXTURE_2D);
-#else
-	if(bBlendEnable)	{glDisable(GL_BLEND);bBlendEnable=false;}
-	if(bDrawDither)		{glDisable(GL_DITHER);bDrawDither=false;}
-	if(bTexEnabled)		{glDisable(GL_TEXTURE_2D);bTexEnabled=false;}
-	
-#endif
-
-#if 1		
-	glPixelTransferi(GL_RED_SCALE, 1);                    // to be sure:
-	glPixelTransferi(GL_RED_BIAS, 0);                     // init more OGL vals
-	glPixelTransferi(GL_GREEN_SCALE, 1);
-	glPixelTransferi(GL_GREEN_BIAS, 0);
-	glPixelTransferi(GL_BLUE_SCALE, 1);
-	glPixelTransferi(GL_BLUE_BIAS, 0);
-	glPixelTransferi(GL_ALPHA_SCALE, 1);
-	glPixelTransferi(GL_ALPHA_BIAS, 0);  
-#endif
-
-	//DisplaySet = false;
-	//bDisplayNotSet = true;
-#endif
-
 	stop = 0;
 	psxCpu->Execute();
-	//glFlush();
-	//glFinish();
 
-      //  glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
+        glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
 	video_cb(RETRO_HW_FRAME_BUFFER_VALID, vout_width, vout_height, 0);
 	vout_fb_dirty = 0;
-
-	//glPolygonMode(GL_FRONT, GL_FILL);
-	//glPolygonMode(GL_BACK, GL_FILL);
-
 }
 
 static bool try_use_bios(const char *path)

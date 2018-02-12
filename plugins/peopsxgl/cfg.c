@@ -224,9 +224,9 @@ void ReadConfig(void)                                  // read config (linux fil
  bAdvancedBlend=FALSE;
  bDrawDither=FALSE;
  bUseLines=FALSE;
- bUseFrameLimit=TRUE;
+ bUseFrameLimit=FALSE;
  bUseFrameSkip=FALSE;
- iFrameLimit=2;
+ iFrameLimit=0;
  fFrameRate=200.0f;
  iOffscreenDrawing=2;
  bOpaquePass=TRUE;

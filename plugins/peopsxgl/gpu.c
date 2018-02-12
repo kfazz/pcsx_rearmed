@@ -36,6 +36,8 @@ static int iOldMode=0;
 
 #endif
 
+extern int stop;
+
 #define _IN_GPU
 
 #include "externals.h"
@@ -1097,7 +1099,7 @@ void updateDisplay(void)                               // UPDATE DISPLAY
      DoBufferSwap();
 #else
       //glXSwapBuffers(display,window);
-	1==1;
+	1==1; //stop=1;
 #endif
     }
    if(dwActFixes&0x180)                                // -> special old frame skipping: skip max one in a row
@@ -1117,7 +1119,7 @@ void updateDisplay(void)                               // UPDATE DISPLAY
    DoBufferSwap();
 #else
     //glXSwapBuffers(display,window);
-	1==1;
+	1==1; //stop=1;
 #endif
   }
 
@@ -1247,7 +1249,7 @@ void updateFrontDisplay(void)
 #else
  if(iDrawnSomething)                                   // linux:
   //glXSwapBuffers(display,window);
-	1==1;
+	1==1; //stop=1;
 #endif
 
  if(iBlurBuffer) UnBlurBackBuffer();
@@ -1585,6 +1587,8 @@ void CALLBACK GPUupdateLace(void)
 #if defined(_WINDOWS) || defined(_MACGL)
  if(bChangeWinMode) ChangeWindowMode();
 #endif
+
+stop=1;
 }
 
 ////////////////////////////////////////////////////////////////////////

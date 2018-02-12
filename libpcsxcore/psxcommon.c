@@ -60,8 +60,12 @@ void EmuUpdate() {
 
 	// reamed hack
 	{
-		extern void pl_frame_limit(void);
-		pl_frame_limit();
+	//	extern void pl_frame_limit(void);
+	//	pl_frame_limit();
+	extern int g_emu_resetting;
+	extern int stop;
+	if (g_emu_resetting)
+		stop=1;
 	}
 }
 
