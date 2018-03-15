@@ -228,28 +228,29 @@ void ReadConfig(void)                                  // read config (linux fil
  bUseFrameSkip=FALSE;
  iFrameLimit=0;
  fFrameRate=200.0f;
- iOffscreenDrawing=2;
- bOpaquePass=TRUE;
+ iOffscreenDrawing=1; //need >1 for xenogears
+ bOpaquePass=FALSE;
  bUseAntiAlias=FALSE;
  iTexQuality=0;
- iUseMask=0;
+ iUseMask=0;		//Not mask
  iZBufferDepth=0;
  bUseFastMdec=TRUE;
  dwCfgFixes=0;
  bUseFixes=FALSE;
- iFrameTexType=1;
- iFrameReadType=0;
+ iFrameTexType=2;
+ iFrameReadType=2; // need 2 or 3 for xenogears
  bUse15bitMdec=FALSE;
  iShowFPS=0;
- bGteAccuracy=0;
+ bGteAccuracy=1;
  bKeepRatio=FALSE;
- bForceRatio43=FALSE;
+ bForceRatio43=TRUE; //
  iScanBlend=0;
  iVRamSize=0;
  iTexGarbageCollection=1;
  iBlurBuffer=0;
  iHiResTextures=0;
  iForceVSync=-1;
+ iUseExts=1;
 
  //ReadConfigFile();                                     // read file
 

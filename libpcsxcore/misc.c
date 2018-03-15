@@ -182,7 +182,7 @@ int LoadCdrom() {
 
 	if (!Config.HLE) {
 		// skip BIOS logos
-		//psxRegs.pc = psxRegs.GPR.n.ra;
+		psxRegs.pc = psxRegs.GPR.n.ra;
 		return 0;
 	}
 

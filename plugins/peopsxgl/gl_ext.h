@@ -20,21 +20,13 @@
 #define PRIMARY_COLOR_EXT    0x8577
 #define PREVIOUS_EXT         0x8578
 
-#define FUNC_ADD_EXT             0x8006
-#define FUNC_REVERSESUBTRACT_EXT 0x800B
+//#define FUNC_ADD_EXT             0x8006
+//#define FUNC_REVERSESUBTRACT_EXT 0x800B
 
-#ifdef _WINDOWS
-typedef void (APIENTRY * PFNGLBLENDEQU) (GLenum mode);
-typedef void (APIENTRY * PFNGLCOLORTABLEEXT)
-    (GLenum target, GLenum internalFormat, GLsizei width, GLenum format,
-     GLenum type, const GLvoid *data);
-typedef BOOL (APIENTRY *PFNWGLSWAPINTERVALFARPROC)(int iV);
-#else
 typedef void (* PFNGLBLENDEQU) (GLenum mode);
 typedef void (* PFNGLCOLORTABLEEXT)
     (GLenum target, GLenum internalFormat, GLsizei width, GLenum format,
      GLenum type, const GLvoid *data);
-#endif
 
 #define GL_UNSIGNED_SHORT_4_4_4_4_EXT       0x8033
 #define GL_UNSIGNED_SHORT_5_5_5_1_EXT       0x8034

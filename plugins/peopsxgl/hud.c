@@ -164,11 +164,6 @@ void MakeDisplayLists(void)                            // MAKE FONT
 
 void KillDisplayLists(void)
 {
-#ifdef _WINDOWS
- if(hGFont) DeleteObject(hGFont);                      // windows: kill info font
- hGFont=NULL;
-#endif
-
  if(gTexFontName)                                      // del font/info textures
   {glDeleteTextures(1,&gTexFontName);gTexFontName=0;}
 }

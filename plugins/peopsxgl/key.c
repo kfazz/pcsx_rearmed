@@ -35,15 +35,6 @@
 ////////////////////////////////////////////////////////////////////////
 // keyboard handler (UNIX)
 ////////////////////////////////////////////////////////////////////////
-#ifdef _MACGL
-#define VK_INSERT      114
-#define VK_HOME        115
-#define VK_PRIOR       116
-#define VK_NEXT        121
-#define VK_END         119
-#define VK_DEL         117
-#define VK_F5          96
-#else
 #define VK_INSERT      65379
 #define VK_HOME        65360
 #define VK_PRIOR       65365
@@ -51,7 +42,6 @@
 #define VK_END         65367
 #define VK_DEL         65535
 #define VK_F5          65474
-#endif
 
 void GPUkeypressed(int keycode)
 {
@@ -69,7 +59,7 @@ void GPUkeypressed(int keycode)
        GPUopen(disp, "2");
       break;*/
 			 
-#if 0 //ndef _MACGL
+#if 0
       case XK_section:
        bUseFrameSkip=!bUseFrameSkip;
        bUseFrameLimit=!bUseFrameLimit;
@@ -103,9 +93,6 @@ void GPUkeypressed(int keycode)
       case VK_NEXT:  BuildDispMenu( 1);            break;
       case VK_END:   SwitchDispMenu( 1);           break;
       case VK_HOME:  SwitchDispMenu(-1);           break;
-#if defined (_MACGL)
-      default: { void HandleKey(int keycode); HandleKey(keycode); };
-#endif
      }
 
 }

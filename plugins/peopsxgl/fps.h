@@ -24,7 +24,5 @@ void FrameSkip(void);
 void CheckFrameRate(void);
 void ReInitFrameCap(void);
 void SetAutoFrameCap(void);
-
-#ifndef _WINDOWS
 unsigned long timeGetTime();
-#endif
+

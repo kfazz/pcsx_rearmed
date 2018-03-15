@@ -17,23 +17,15 @@
  ***************************************************************************/
 
 // !!! enable this, if Linux XF86VidMode is not supported: 
-//#define NOVMODE
+#define NOVMODE
 
 #include "stdafx.h"
-
-#if defined (_MACGL)
-#include "drawgl.h"
-#elif !defined(_MACGL) && !defined(_WINDOWS)
-
 #include "config.h"
 
-#define NOVMODE
 #ifndef NOVMODE
 #include <X11/extensions/xf86vmode.h>
 static XF86VidModeModeInfo **modes=0;
 static int iOldMode=0;
-#endif
-
 #endif
 
 extern int stop;
@@ -51,10 +43,6 @@ extern int stop;
 #include "fps.h"
 #include "key.h"
 #include "gte_accuracy.h"
-#ifdef _WINDOWS
-#include "resource.h"
-#include "ssave.h"
-#endif
 #ifdef ENABLE_NLS
 #include <libintl.h>
 #include <locale.h>
@@ -83,10 +71,6 @@ __private_extern char* PLUGLOC(char* toloc);
 #else
 #define _(x)  (x)
 #define N_(x) (x)
-#endif
-
-#ifdef _MACGL
-#include "drawgl.h"
 #endif
 
 ////////////////////////////////////////////////////////////////////////
@@ -122,10 +106,6 @@ signed   int   *psxVsl;
 BOOL            bNeedInterlaceUpdate=FALSE;
 BOOL            bNeedRGB24Update=FALSE;
 BOOL            bChangeWinMode=FALSE;
-
-#ifdef _WINDOWS
-extern HGLRC    GLCONTEXT;
-#endif
 
 uint32_t        ulStatusControl[256];
 
@@ -232,15 +212,8 @@ char * GPUgetLibInfos(void)
 // snapshot funcs (saves screen to bitmap / text infos into file)
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef _WINDOWS
-char * GetConfigInfos(HWND hW)
-#else
 char * GetConfigInfos(int hW)
-#endif
 {
-#ifdef _WINDOWS
- HDC hdc;HGLRC hglrc;
-#endif
  char szO[2][4]={"off","on "};
  char szTxt[256];
  char * pB=(char *)malloc(32767);
@@ -252,17 +225,6 @@ char * GetConfigInfos(int hW)
  strcat(pB,szTxt);
  sprintf(szTxt,"Author: %s\r\n",PluginAuthor);
  strcat(pB,szTxt);
-
-#ifdef _WINDOWS
- if(hW)
-  {
-   hdc = GetDC(hW);
-   bSetupPixelFormat(hdc);
-   hglrc = wglCreateContext(hdc);
-   wglMakeCurrent(hdc, hglrc);
-  }
-#endif
-
  sprintf(szTxt,"Card vendor: %s\r\n",(char *)glGetString(GL_VENDOR));
  strcat(pB,szTxt);
  sprintf(szTxt,"GFX card: %s\r\n",(char *)glGetString(GL_RENDERER));
@@ -271,16 +233,6 @@ char * GetConfigInfos(int hW)
  strcat(pB,szTxt);
  //strcat(pB,(char *)glGetString(GL_EXTENSIONS));
  //strcat(pB,"\r\n\r\n");
-
-#ifdef _WINDOWS
- if(hW)
-  {
-   wglMakeCurrent(NULL, NULL);
-   wglDeleteContext(hglrc);
-   ReleaseDC(hW,hdc);
-  }
- //----------------------------------------------------//
-#endif
 
  if(hW && bWindowMode)
   sprintf(szTxt,"Resolution/Color:\r\n- %dx%d ",LOWORD(iWinSize),HIWORD(iWinSize));
@@ -418,13 +370,7 @@ char * GetConfigInfos(int hW)
 void DoTextSnapShot(int iNum)
 {
  FILE *txtfile;char szTxt[256];char * pB;
-
-#ifdef _WINDOWS
- sprintf(szTxt,"snap\\pcsxr%04d.txt",iNum);
-#else
  sprintf(szTxt,"%s/pcsxr%04d.txt",getenv("HOME"),iNum);
-#endif
-
  if((txtfile=fopen(szTxt,"wb"))==NULL)
   return;                                              
 
@@ -488,11 +434,7 @@ void DoSnapShot(void)
  do
   {
    snapshotnr++;
-#ifdef _WINDOWS
-   sprintf(filename,"snap/pcsxr%04d.bmp",snapshotnr);
-#else
    sprintf(filename,"%s/pcsxr%04d.bmp",getenv("HOME"),snapshotnr);
-#endif
    bmpfile=fopen(filename,"rb");
    if(bmpfile==NULL)break;
    fclose(bmpfile);
@@ -520,9 +462,6 @@ void DoSnapShot(void)
  free(snapshotdumpmem);
 
  DoTextSnapShot(snapshotnr);
-#ifdef _WINDOWS
- MessageBeep((UINT)-1);
-#endif
 }       
 
 void CALLBACK GPUmakeSnapshot(void)
@@ -614,9 +553,7 @@ long CALLBACK GPUinit()
 long GPUopen(unsigned long * disp,char * CapText,char * CfgFile)
 {
 // pCaptionText=CapText;
-#if !defined (_MACGL)
  pConfigFile=CfgFile;
-#endif
 
  ReadConfig();                                         // read text file for config
 
@@ -641,43 +578,14 @@ return 0;
 // close
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef _WINDOWS
-
-long CALLBACK GPUclose()                               // WINDOWS CLOSE
-{
- ExitKeyHandler();
-
- GLcleanup();                                          // close OGL
-
- if(bChangeRes)                                        // change res back
-  ChangeDisplaySettings(NULL,0);
-
- if(hPSEMenu)                                          // set menu again
-  SetMenu(hWWindow,hPSEMenu);
-
- if(pGfxCardScreen) free(pGfxCardScreen);              // free helper memory
- pGfxCardScreen=0;
-
- if(iNoScreenSaver) EnableScreenSaver(TRUE);           // enable screen saver again
-
- return 0;
-}
-
-#else
-
 long GPUclose()                                        // LINUX CLOSE
 {
  GLcleanup();                                          // close OGL
 
  if(pGfxCardScreen) free(pGfxCardScreen);              // free helper memory
  pGfxCardScreen=0;
-#if defined (_MACGL)
- CloseDisplay();
-#endif
  return 0;
 }
-
-#endif
 
 ////////////////////////////////////////////////////////////////////////
 // I shot the sheriff... last function called from emu 
@@ -998,14 +906,6 @@ int iSkipTwo=0;
 void updateDisplay(void)                               // UPDATE DISPLAY
 {
  BOOL bBlur=FALSE;
-
-#ifdef _WINDOWS
- HDC hdc=GetDC(hWWindow);                              // windows:
- wglMakeCurrent(hdc,GLCONTEXT);                        // -> make context current again
-#endif
-#if defined (_MACGL)
- BringContextForward();
-#endif
  bFakeFrontBuffer=FALSE;
  bRenderFrontBuffer=FALSE;
 
@@ -1093,14 +993,8 @@ void updateDisplay(void)                               // UPDATE DISPLAY
    if(!bSkipNextFrame) 
     {
      if(iDrawnSomething)
-#ifdef _WINDOWS
-      SwapBuffers(wglGetCurrentDC());                  // -> to skip or not to skip
-#elif defined(_MACGL)
-     DoBufferSwap();
-#else
       //glXSwapBuffers(display,window);
 	1==1; //stop=1;
-#endif
     }
    if(dwActFixes&0x180)                                // -> special old frame skipping: skip max one in a row
     {
@@ -1113,14 +1007,8 @@ void updateDisplay(void)                               // UPDATE DISPLAY
  else                                                  // no skip ?
   {
    if(iDrawnSomething)
-#ifdef _WINDOWS
-    SwapBuffers(wglGetCurrentDC());                    // -> swap
-#elif defined(_MACGL)
-   DoBufferSwap();
-#else
     //glXSwapBuffers(display,window);
 	1==1; //stop=1;
-#endif
   }
 
  iDrawnSomething=0;
@@ -1203,11 +1091,6 @@ void updateDisplay(void)                               // UPDATE DISPLAY
               rRatioRect.right+i3, 
               rRatioRect.bottom+i4);            
   }
-
-#ifdef _WINDOWS
- ReleaseDC(hWWindow,hdc);                              // ! important !
-#endif
-
  if(ulKeybits&KEY_RESETTEXSTORE) ResetStuff();         // reset on gpu mode changes? do it before next frame is filled
 }
 
@@ -1234,23 +1117,9 @@ void updateFrontDisplay(void)
  if(gTexPicName) DisplayPic();
  //if(ulKeybits&KEY_SHOWFPS) DisplayText();
 
-#ifdef _WINDOWS
-  {                                                    // windows: 
-   HDC hdc=GetDC(hWWindow);
-   wglMakeCurrent(hdc,GLCONTEXT);                      // -> make current again
-   if(iDrawnSomething)
-    SwapBuffers(wglGetCurrentDC());                    // -> swap
-   ReleaseDC(hWWindow,hdc);                            // -> ! important !
-  }
-#elif defined (_MACGL)
- if (iDrawnSomething){
-  DoBufferSwap();
- }
-#else
  if(iDrawnSomething)                                   // linux:
   //glXSwapBuffers(display,window);
 	1==1; //stop=1;
-#endif
 
  if(iBlurBuffer) UnBlurBackBuffer();
 }
@@ -1458,20 +1327,6 @@ void updateDisplayIfChanged(void)
 }
 
 ////////////////////////////////////////////////////////////////////////
-// window mode <-> fullscreen mode (windows)
-////////////////////////////////////////////////////////////////////////
-
-#ifdef _WINDOWS
-void ChangeWindowMode(void)
- {
-  GPUclose();
-  bWindowMode=!bWindowMode;
-  GPUopen(hWWindow);
-  bChangeWinMode=FALSE;
- }
-#endif
-
-////////////////////////////////////////////////////////////////////////
 // swap update check (called by psx vsync function)
 ////////////////////////////////////////////////////////////////////////
 
@@ -1584,11 +1439,7 @@ void CALLBACK GPUupdateLace(void)
    updateDisplay();
   }
 
-#if defined(_WINDOWS) || defined(_MACGL)
- if(bChangeWinMode) ChangeWindowMode();
-#endif
-
-stop=1;
+//stop=1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1643,10 +1494,6 @@ uint32_t CALLBACK GPUreadStatus(void)
 void CALLBACK GPUwriteStatus(uint32_t gdata)
 {
  uint32_t lCommand=(gdata>>24)&0xff;
-
-#ifdef _WINDOWS
- if(bIsFirstFrame) GLinitialize();                     // real ogl startup (needed by some emus)
-#endif
 
  ulStatusControl[lCommand]=gdata;
 
@@ -2544,25 +2391,6 @@ void CALLBACK GPUwriteData(uint32_t gdata)
 // call config dlg
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef _WINDOWS
-
-long CALLBACK GPUconfigure(void)
-{
- HWND hWP=GetActiveWindow();
- DialogBox(hInst,MAKEINTRESOURCE(IDD_CFGDLG),
-           hWP,(DLGPROC)CfgDlgProc);
-
- return 0;
-}
-
-#elif defined(_MACGL)
-long CALLBACK GPUconfigure(void)
-{
-	DlgProc();
-	return 0;
-}
-#else
-
 void StartCfgTool(char *arg) // linux: start external cfg tool
 {
 	char cfg[256];
@@ -2618,8 +2446,6 @@ long CALLBACK GPUconfigure(void)
  StartCfgTool("configure");
  return 0;
 }
-
-#endif // def _WINDOWS / _MACGL
 
 ////////////////////////////////////////////////////////////////////////
 // sets all kind of act fixes
@@ -2697,14 +2523,7 @@ long CALLBACK GPUdmaChain(uint32_t *baseAddrL, uint32_t addr)
 
 void CALLBACK GPUabout(void)
 {
-#ifdef _WINDOWS
-	HWND hWP=GetActiveWindow();                           // to be sure
-	DialogBox(hInst,MAKEINTRESOURCE(IDD_DIALOG_ABOUT), hWP,(DLGPROC)AboutDlgProc);
-#elif defined(_MACGL)
- AboutDlgProc();
-#else
 	StartCfgTool("about");
-#endif
 }
 
 ////////////////////////////////////////////////////////////////////////

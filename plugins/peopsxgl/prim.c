@@ -394,14 +394,14 @@ void SetSemiTrans(void)
    if(TransSets[GlobalTextABR].dstFac !=GL_ONE_MINUS_SRC_COLOR)
     {
      if(obm2==GL_ONE_MINUS_SRC_COLOR)
-      glBlendEquationEXTEx(FUNC_ADD_EXT);
+      glBlendEquationEXTEx(GL_FUNC_ADD);
      obm1=TransSets[GlobalTextABR].srcFac;
      obm2=TransSets[GlobalTextABR].dstFac;
      glBlendFunc(obm1,obm2);                           // set blend func
     }
    else
     {
-     glBlendEquationEXTEx(FUNC_REVERSESUBTRACT_EXT);
+     glBlendEquationEXTEx(GL_FUNC_REVERSE_SUBTRACT);
      obm1=TransSets[GlobalTextABR].srcFac;
      obm2=TransSets[GlobalTextABR].dstFac;
      glBlendFunc(GL_ONE,GL_ONE);                       // set blend func
@@ -414,7 +414,7 @@ void SetScanTrans(void)                                // blending for scan line
  if(glBlendEquationEXTEx!=NULL)
   {
    if(obm2==GL_ONE_MINUS_SRC_COLOR)
-    glBlendEquationEXTEx(FUNC_ADD_EXT);
+    glBlendEquationEXTEx(GL_FUNC_ADD);
   }
 
  obm1=TransSets[0].srcFac;
@@ -427,7 +427,7 @@ void SetScanTexTrans(void)                             // blending for scan mask
  if(glBlendEquationEXTEx!=NULL)
   {
    if(obm2==GL_ONE_MINUS_SRC_COLOR)
-    glBlendEquationEXTEx(FUNC_ADD_EXT);
+    glBlendEquationEXTEx(GL_FUNC_ADD);
   }
 
  obm1=TransSets[2].srcFac;
