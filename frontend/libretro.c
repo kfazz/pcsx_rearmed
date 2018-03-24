@@ -593,7 +593,7 @@ void retro_get_system_info(struct retro_system_info *info)
 void retro_get_system_av_info(struct retro_system_av_info *info)
 {
 	memset(info, 0, sizeof(*info));
-	info->timing.fps            = is_pal_mode ? 55 : 66;
+	info->timing.fps            = is_pal_mode ? 50 : 60;
 	info->timing.sample_rate    = 44100;
 	info->geometry.base_width   = 320;
 	info->geometry.base_height  = 240;
